@@ -366,3 +366,85 @@ public static double sqmtBenchMarkVersion(int threadCount){
 ```
 
 #Question 7
+Threads Time
+------- ----------
+1       4.673261823
+2       3.164645371
+3       2.573688754
+4       1.94583811
+5       2.272075977
+6       2.179852209
+7       1.950004463
+8       2.179962992
+
+```java
+private static void benchMarkMultiQueueMultiThread() {
+    System.out.println("Threads\tTime");
+    for(int i = 1; i<9; i++){
+        double time = mqmtBenchMarkVersion(i);
+        System.out.println(i + "\t" + time);
+    }
+}
+
+private static double mqmtBenchMarkVersion(int threadCount) {
+    SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
+    for(int i = 0; i < threadCount; i++){
+        queues[i] = new SimpleDeque<SortTask>(100000);
+    }
+    int[] array = IntArrayUtil.randomIntArray(20_000_000);
+    queues[0].push(new SortTask(array, 0, array.length-1));
+    CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
+
+    //Initialize ongoing counter with the size of the queue
+    //We assume the queue only has a single task
+    LongAdder ongoing = new LongAdder();
+    ongoing.increment();
+
+    //Creating threads:
+    Thread[] threads = new Thread[threadCount];
+    for(int t = 0; t < threadCount; t++){
+        final int tl = t;
+        threads[t] = new Thread(()->{
+            awaitBarrier(barrier);
+            SortTask task;
+            while (null != (task = getTask(tl, queues, ongoing))) {
+                //We have a task now partition!
+                final int[] arr = task.arr;
+                final int a = task.a, b = task.b;
+                if (a < b) { 
+                    int i = a, j = b;
+                    int x = arr[(i+j) / 2];         
+                    do {                            
+                        while (arr[i] < x) i++;       
+                        while (arr[j] > x) j--;       
+                        if (i <= j) {
+                            swap(arr, i, j);
+                            i++; j--;
+                        }                             
+                    } while (i <= j); 
+
+                    //Increment the counter when pushing
+                    queues[tl].push(new SortTask(arr, a, j));
+                    ongoing.increment();
+                    queues[tl].push(new SortTask(arr, i, b));
+                    ongoing.increment();
+                }
+                //We have sorted something, time to decrement
+                ongoing.decrement();
+            }
+            awaitBarrier(barrier);
+        });
+        //Start the thread
+        threads[t].start();
+    }
+
+    //Waiting for threads
+    awaitBarrier(barrier);
+    //Threads started
+    Timer t = new Timer();
+    awaitBarrier(barrier);
+    //Threads done
+    return t.check();
+}
+
+```
