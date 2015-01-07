@@ -186,8 +186,77 @@ public class Quicksorts {
             ChaseLevDeque<Integer> cl = new ChaseLevDeque<Integer>(100_000_000);
             sequentialDequeTest(cl);
             ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
-            //parallelCLDequeTest(cl2, 10);
+            parallelCLDequeTest(cl2, 10);
             System.out.println("ChaseLevDeque Tests Completed");
+        }
+
+        static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
+            CyclicBarrier barrier = new CyclicBarrier(threadCount+2);
+            int pushedSum = 0;
+            
+            //Start pushing and popping thread
+            LongAdder pushed = new LongAdder();
+            LongAdder popped = new LongAdder();
+            new Thread(()->{
+                awaitBarrier(barrier);
+                long p = 0;
+                long pop = 0;
+                for(int i = 0; i < 1_000_000; i++){
+                    Random random = new Random();
+                    if((random.nextInt() % 2) == 0){
+                        int r = random.nextInt() % 100;
+                        p += r;
+                        queue.push(r);
+                    }else{
+                        Integer pp = queue.pop();
+                        if(pp != null){
+                            pop += pp;
+                        }
+                    }
+
+                }
+                pushed.add(p);
+                popped.add(pop);
+                awaitBarrier(barrier);
+            }).start();
+
+            //Start stealing threads
+            LongAdder stolen = new LongAdder();
+            for(int t = 0; t < threadCount; t++){
+                final int lt = t;
+                new Thread(()->{
+                    awaitBarrier(barrier);
+                    long s = 0;
+                    for(int i = 0; i < 1_000_000; i++){
+                        Integer p = queue.steal();
+                        if(p != null){
+                            s += p;
+                        }
+                    }
+                    stolen.add(s);
+                    awaitBarrier(barrier);
+                }).start();;
+            }
+
+            //Start test
+            awaitBarrier(barrier);
+            //Wait for the test to stop
+            awaitBarrier(barrier);
+
+            //Get the remaining sum
+            long remaining = 0;
+            Integer p = queue.pop();
+            while(p != null){
+                remaining += p;
+                p = queue.pop();
+            }
+
+            //Get the sum of the threads
+            long pushedsum = pushed.sum();
+            long retrievedsum = remaining + popped.sum() + stolen.sum();
+
+            //Check that sum matches
+            assertEquals(retrievedsum, pushedsum);
         }
 
         // ----------------------------------------------------------------------
