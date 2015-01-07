@@ -21,15 +21,15 @@ public class Quicksorts {
     final static int size = 1_000_000; // Number of integers to sort
 
     public static void main(String[] args) throws Exception {
-        //sequentialRecursive();
-        //singleQueueSingleThread();
-        //singleQueueMultiThread(8);
-        //multiQueueMultiThread(8);
-        //multiQueueMultiThreadCL(8);
-        //Tests.benchmarkSingleQueueMultiThread();
-        //Tests.benchMarkMultiQueueMultiThread();
+        sequentialRecursive();
+        singleQueueSingleThread();
+        singleQueueMultiThread(8);
+        multiQueueMultiThread(8);
+        multiQueueMultiThreadCL(8);
+        Tests.benchmarkSingleQueueMultiThread();
+        Tests.benchMarkMultiQueueMultiThread();
         Tests.benchMarkMultiCLQueueMultiThread();
-        //Tests.runTests();
+        Tests.runTests();
     }
 
 
@@ -79,35 +79,10 @@ public class Quicksorts {
             //Creating threads:
             Thread[] threads = new Thread[threadCount];
             for(int t = 0; t < threadCount; t++){
-                final int tl = t;
+                final int myNumber = t;
                 threads[t] = new Thread(()->{
                     awaitBarrier(barrier);
-                    SortTask task;
-                    while (null != (task = getTask(tl, queues, ongoing))) {
-                        //We have a task now partition!
-                        final int[] arr = task.arr;
-                        final int a = task.a, b = task.b;
-                        if (a < b) { 
-                            int i = a, j = b;
-                            int x = arr[(i+j) / 2];         
-                            do {                            
-                                while (arr[i] < x) i++;       
-                                while (arr[j] > x) j--;       
-                                if (i <= j) {
-                                    swap(arr, i, j);
-                                    i++; j--;
-                                }                             
-                            } while (i <= j); 
-
-                            //Increment the counter when pushing
-                            queues[tl].push(new SortTask(arr, a, j));
-                            ongoing.increment();
-                            queues[tl].push(new SortTask(arr, i, b));
-                            ongoing.increment();
-                        }
-                        //We have sorted something, time to decrement
-                        ongoing.decrement();
-                    }
+                    mqmtWorker(queues, myNumber, ongoing);
                     awaitBarrier(barrier);
                 });
                 //Start the thread
@@ -148,32 +123,7 @@ public class Quicksorts {
             for(int t = 0; t < threadCount; t++){
                 threads[t] = new Thread(()->{
                     awaitBarrier(barrier);
-                    SortTask task;
-                    while (null != (task = getTask(queue, ongoing))) {
-                        //We have a task now partition!
-                        final int[] arr = task.arr;
-                        final int a = task.a, b = task.b;
-                        if (a < b) { 
-                            int i = a, j = b;
-                            int x = arr[(i+j) / 2];         
-                            do {                            
-                                while (arr[i] < x) i++;       
-                                while (arr[j] > x) j--;       
-                                if (i <= j) {
-                                    swap(arr, i, j);
-                                    i++; j--;
-                                }                             
-                            } while (i <= j); 
-
-                            //Increment the counter when pushing
-                            queue.push(new SortTask(arr, a, j));
-                            ongoing.increment();
-                            queue.push(new SortTask(arr, i, b));
-                            ongoing.increment();
-                        }
-                        //We have sorted something, time to decrement
-                        ongoing.decrement();
-                    }
+                    sqmtWorker(queue, ongoing);
                     awaitBarrier(barrier);
                 });
                 //Start the thread
@@ -488,19 +438,27 @@ public class Quicksorts {
     // Version C: Single-queue multi-thread setup 
 
     private static void singleQueueMultiThread(final int threadCount) {
+        System.out.println("Running singleQueueMultiThread");
         SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
         //int[] arr = IntArrayUtil.randomIntArray(size);
+        System.out.println("Before:");
         int[] arr = IntArrayUtil.randomIntArray(20);
-        IntArrayUtil.printout(arr, 20);
 
+        IntArrayUtil.printout(arr, 20);
 
         queue.push(new SortTask(arr, 0, arr.length-1));
         sqmtWorkers(queue, threadCount);
 
-        System.out.println(IntArrayUtil.isSorted(arr));
+        System.out.println("After:");
         IntArrayUtil.printout(arr, 20);
+
+        System.out.println("Sorted:");
+        System.out.println(IntArrayUtil.isSorted(arr));
     }
 
+    /**
+     * Function for starting singleQueueMultiThread workers
+     */
     private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
         //Initialize ongoing counter with the size of the queue
         //We assume the queue only has a single task
@@ -510,35 +468,8 @@ public class Quicksorts {
         //Creating threads:
         Thread[] threads = new Thread[threadCount];
         for(int t = 0; t < threadCount; t++){
-            threads[t] = new Thread(()->{
-                SortTask task;
-                while (null != (task = getTask(queue, ongoing))) {
-                    //We have a task now partition!
-                    final int[] arr = task.arr;
-                    final int a = task.a, b = task.b;
-                    if (a < b) { 
-                        int i = a, j = b;
-                        int x = arr[(i+j) / 2];         
-                        do {                            
-                            while (arr[i] < x) i++;       
-                            while (arr[j] > x) j--;       
-                            if (i <= j) {
-                                swap(arr, i, j);
-                                i++; j--;
-                            }                             
-                        } while (i <= j); 
-
-                        //Increment the counter when pushing
-                        queue.push(new SortTask(arr, a, j));
-                        ongoing.increment();
-                        queue.push(new SortTask(arr, i, b));
-                        ongoing.increment();
-                    }
-                    //We have sorted something, time to decrement
-                    ongoing.decrement();
-                }
-            });
             //Start the thread
+            threads[t] = new Thread(()-> sqmtWorker(queue, ongoing));
             threads[t].start();
         }
 
@@ -547,6 +478,38 @@ public class Quicksorts {
             try{
                 threads[t].join();
             }catch(InterruptedException e){}
+        }
+    }
+
+    /**
+     * Function for a singleQueueMultiThread worker
+     */
+    private static void sqmtWorker(Deque<SortTask> queue, LongAdder ongoing){
+        SortTask task;
+        while (null != (task = getTask(queue, ongoing))) {
+            //We have a task now partition!
+            final int[] arr = task.arr;
+            final int a = task.a, b = task.b;
+            if (a < b) { 
+                int i = a, j = b;
+                int x = arr[(i+j) / 2];         
+                do {                            
+                    while (arr[i] < x) i++;       
+                    while (arr[j] > x) j--;       
+                    if (i <= j) {
+                        swap(arr, i, j);
+                        i++; j--;
+                    }                             
+                } while (i <= j); 
+
+                //Increment the counter when pushing
+                queue.push(new SortTask(arr, a, j));
+                ongoing.increment();
+                queue.push(new SortTask(arr, i, b));
+                ongoing.increment();
+            }
+            //We have sorted something, time to decrement
+            ongoing.decrement();
         }
     }
 
@@ -569,25 +532,31 @@ public class Quicksorts {
     // Version D: Multi-queue multi-thread setup, thread-local queues
 
     private static void multiQueueMultiThread(final int threadCount) {
+        System.out.println("Running multiQueueMultiThread");
         SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
         for(int i = 0; i < threadCount; i++){
             queues[i] = new SimpleDeque<SortTask>(100000);
         }
-        int[] arr = IntArrayUtil.randomIntArray(size);
-        //int[] arr = IntArrayUtil.randomIntArray(20);
-        //IntArrayUtil.printout(arr, 20);
+        //int[] arr = IntArrayUtil.randomIntArray(size);
+        System.out.println("Before:");
+        int[] arr = IntArrayUtil.randomIntArray(20);
+        IntArrayUtil.printout(arr, 20);
 
 
         queues[0].push(new SortTask(arr, 0, arr.length-1));
         mqmtWorkers(queues, threadCount);
 
+        System.out.println("After:");
+        IntArrayUtil.printout(arr, 20);
+        
+        System.out.println("Sorted:");
         System.out.println(IntArrayUtil.isSorted(arr));
-        //IntArrayUtil.printout(arr, 20);
     }
 
     // Version E: Multi-queue multi-thread setup, thread-local queues
 
     private static void multiQueueMultiThreadCL(final int threadCount) {
+        System.out.println("Running multiQueueMultiThreadCL");
         ChaseLevDeque<SortTask>[] queues = new ChaseLevDeque[threadCount];
         for(int i = 0; i < threadCount; i++){
             queues[i] = new ChaseLevDeque<SortTask>(100000);
@@ -617,36 +586,9 @@ public class Quicksorts {
         //Creating threads:
         Thread[] threads = new Thread[threadCount];
         for(int t = 0; t < threadCount; t++){
-            final int tl = t;
-            threads[t] = new Thread(()->{
-                SortTask task;
-                while (null != (task = getTask(tl, queues, ongoing))) {
-                    //We have a task now partition!
-                    final int[] arr = task.arr;
-                    final int a = task.a, b = task.b;
-                    if (a < b) { 
-                        int i = a, j = b;
-                        int x = arr[(i+j) / 2];         
-                        do {                            
-                            while (arr[i] < x) i++;       
-                            while (arr[j] > x) j--;       
-                            if (i <= j) {
-                                swap(arr, i, j);
-                                i++; j--;
-                            }                             
-                        } while (i <= j); 
-
-                        //Increment the counter when pushing
-                        queues[tl].push(new SortTask(arr, a, j));
-                        ongoing.increment();
-                        queues[tl].push(new SortTask(arr, i, b));
-                        ongoing.increment();
-                    }
-                    //We have sorted something, time to decrement
-                    ongoing.decrement();
-                }
-            });
-            //Start the thread
+            //Start worker thread
+            final int myNumber = t;
+            threads[t] = new Thread(()-> mqmtWorker(queues, myNumber, ongoing));
             threads[t].start();
         }
 
@@ -657,6 +599,36 @@ public class Quicksorts {
             }catch(InterruptedException e){}
         }
     }
+
+    private static void mqmtWorker(Deque<SortTask>[] queues, int myNumber,
+            LongAdder ongoing){
+            SortTask task;
+            while (null != (task = getTask(myNumber, queues, ongoing))) {
+                //We have a task now partition!
+                final int[] arr = task.arr;
+                final int a = task.a, b = task.b;
+                if (a < b) { 
+                    int i = a, j = b;
+                    int x = arr[(i+j) / 2];         
+                    do {                            
+                        while (arr[i] < x) i++;       
+                        while (arr[j] > x) j--;       
+                        if (i <= j) {
+                            swap(arr, i, j);
+                            i++; j--;
+                        }                             
+                    } while (i <= j); 
+
+                    //Increment the counter when pushing
+                    queues[myNumber].push(new SortTask(arr, a, j));
+                    ongoing.increment();
+                    queues[myNumber].push(new SortTask(arr, i, b));
+                    ongoing.increment();
+                }
+                //We have sorted something, time to decrement
+                ongoing.decrement();
+            }
+    } 
 
     // Tries to get a sorting task.  If task queue is empty, repeatedly
     // try to steal, cyclically, from other threads and if that fails,
