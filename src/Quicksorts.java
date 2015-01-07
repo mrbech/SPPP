@@ -28,7 +28,8 @@ public class Quicksorts {
         //multiQueueMultiThreadCL(8);
         //Tests.benchmarkSingleQueueMultiThread();
         //Tests.benchMarkMultiQueueMultiThread();
-        Tests.runTests();
+        Tests.benchMarkMultiCLQueueMultiThread();
+        //Tests.runTests();
     }
 
 
@@ -42,16 +43,30 @@ public class Quicksorts {
         private static void benchMarkMultiQueueMultiThread() {
             System.out.println("Threads\tTime");
             for(int i = 1; i<9; i++){
-                double time = mqmtBenchMarkVersion(i);
+                SimpleDeque<SortTask>[] queues = new SimpleDeque[i];
+                for(int t = 0; t < i; t++){
+                    queues[t] = new SimpleDeque<SortTask>(100000);
+                }
+                double time = mqmtBenchMarkVersion(i, queues);
+                System.out.println(i + "\t" + time);
+            }
+        }
+        // ----------------------------------------------------------------------
+        // Question 11
+        private static void benchMarkMultiCLQueueMultiThread() {
+            System.out.println("Threads\tTime");
+            for(int i = 1; i<9; i++){
+                ChaseLevDeque<SortTask>[] queues = new ChaseLevDeque[i];
+                for(int t = 0; t < i; t++){
+                    queues[t] = new ChaseLevDeque<SortTask>(100000);
+                }
+                double time = mqmtBenchMarkVersion(i, queues);
                 System.out.println(i + "\t" + time);
             }
         }
 
-        private static double mqmtBenchMarkVersion(int threadCount) {
-            SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
-            for(int i = 0; i < threadCount; i++){
-                queues[i] = new SimpleDeque<SortTask>(100000);
-            }
+
+        private static double mqmtBenchMarkVersion(int threadCount, Deque<SortTask>[] queues) {
             int[] array = IntArrayUtil.randomIntArray(20_000_000);
             queues[0].push(new SortTask(array, 0, array.length-1));
             CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
@@ -573,8 +588,23 @@ public class Quicksorts {
     // Version E: Multi-queue multi-thread setup, thread-local queues
 
     private static void multiQueueMultiThreadCL(final int threadCount) {
-        int[] arr = IntArrayUtil.randomIntArray(size);
-        // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
+        ChaseLevDeque<SortTask>[] queues = new ChaseLevDeque[threadCount];
+        for(int i = 0; i < threadCount; i++){
+            queues[i] = new ChaseLevDeque<SortTask>(100000);
+        }
+        //int[] arr = IntArrayUtil.randomIntArray(size);
+        System.out.println("Before:");
+        int[] arr = IntArrayUtil.randomIntArray(20);
+        IntArrayUtil.printout(arr, 20);
+
+
+        queues[0].push(new SortTask(arr, 0, arr.length-1));
+        mqmtWorkers(queues, threadCount);
+
+        System.out.println("After:");
+        IntArrayUtil.printout(arr, 20);
+
+        System.out.println("Sorted:");
         System.out.println(IntArrayUtil.isSorted(arr));
     }
 

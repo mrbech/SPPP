@@ -81,6 +81,7 @@ private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
 }
 ```
 
+Output:
 ```
 Before:
 34 13 35 6 35 24 21 38 17 27 28 3 28 7 19 29 37 24 18 20
@@ -450,3 +451,92 @@ private static double mqmtBenchMarkVersion(int threadCount) {
 ```
 
 #Question 8
+
+```java
+class ChaseLevDeque<T> implements Deque<T> {
+    volatile long bottom = 0; 
+    AtomicLong top = new AtomicLong(0);
+    T[] items;
+
+    public ChaseLevDeque(int size) {
+        this.items = makeArray(size);
+    }
+
+    @SuppressWarnings("unchecked") 
+    private static <T> T[] makeArray(int size) {
+        // Java's @$#@?!! type system requires this unsafe cast    
+        return (T[])new Object[size];
+    }
+
+    private static int index(long i, int n) {
+        return (int)(i % (long)n);
+    }
+
+    public void push(T item) { // at bottom
+        final long b = bottom, t = top.get(), size = b - t;
+        if (size == items.length) 
+            throw new RuntimeException("queue overflow");
+        items[index(b, items.length)] = item;
+        bottom = b+1;
+    }
+
+    public T pop() { // from bottom
+        final long b = bottom - 1, t = top.get(), afterSize = b - t;
+        bottom = b;
+        if (afterSize < 0) { // empty before call
+            bottom = t;
+            return null;
+        } else {
+            T result = items[index(b, items.length)];
+            if (afterSize > 0) // non-empty after call
+                return result;
+            else {		// became empty, update both top and bottom
+                if (!top.compareAndSet(t, t+1)) // somebody stole result
+                    result = null;
+                bottom = t+1;
+                return result;
+            }
+        }
+    }
+
+    public T steal() { // from top
+        final long b = bottom, t = top.get(), size = b - t;
+        if (size <= 0)
+            return null;
+        else {
+            T result = items[index(t, items.length)];
+            if (top.compareAndSet(t, t+1))
+                return result;
+            else 
+                return null;
+        }
+    }
+}
+```
+
+#Question 9
+
+#Question 10
+
+```
+Before:
+37 32 25 34 0 14 10 39 12 25 30 2 36 1 37 1 12 1 11 33 
+
+After:
+0 1 1 1 2 10 11 12 12 14 25 25 30 32 33 34 36 37 37 39 
+
+Sorted:
+true
+```
+
+#Question 11
+Threads Time
+------- ----------
+1       4.304853945
+2       2.73936218
+3       2.046592741
+4       1.850278707
+5       1.942862235
+6       2.034372296
+7       2.07867276
+8       1.821243739
