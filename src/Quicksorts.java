@@ -26,9 +26,9 @@ public class Quicksorts {
         //singleQueueMultiThread(8);
         //multiQueueMultiThread(8);
         //multiQueueMultiThreadCL(8);
-        //Tests.runTests();
         //Tests.benchmarkSingleQueueMultiThread();
-        Tests.benchMarkMultiQueueMultiThread();
+        //Tests.benchMarkMultiQueueMultiThread();
+        Tests.runTests();
     }
 
 
@@ -37,13 +37,6 @@ public class Quicksorts {
     // Testing
 
     static class Tests {
-        static void runTests() throws Exception{
-            //Test SimpleDeque
-            SimpleDeque<Integer> simple = new SimpleDeque<Integer>(100_000_000);
-            sequentialDequeTest(simple);
-            SimpleDeque<Integer> simple2 = new SimpleDeque<Integer>(100_000_000);
-            parallelDequeTest(simple2, 3);
-        }
         // ----------------------------------------------------------------------
         // Question 6
         private static void benchMarkMultiQueueMultiThread() {
@@ -181,9 +174,33 @@ public class Quicksorts {
             return t.check();
 
         }
+        static void runTests() throws Exception{
+            //runTestsSimpleDeque();
+            runTestChaseLevDeque();
+        }
+
+        // ----------------------------------------------------------------------
+        // Question 9
+        static void runTestChaseLevDeque() throws Exception {
+            System.out.println("Running ChaseLevDeque Tests");
+            ChaseLevDeque<Integer> cl = new ChaseLevDeque<Integer>(100_000_000);
+            sequentialDequeTest(cl);
+            ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
+            //parallelCLDequeTest(cl2, 10);
+            System.out.println("ChaseLevDeque Tests Completed");
+        }
 
         // ----------------------------------------------------------------------
         // Question 4
+        static void runTestsSimpleDeque() throws Exception {
+            //Test SimpleDeque
+            System.out.println("Running SimpleDeque Tests");
+            SimpleDeque<Integer> simple = new SimpleDeque<Integer>(100_000_000);
+            sequentialDequeTest(simple);
+            SimpleDeque<Integer> simple2 = new SimpleDeque<Integer>(100_000_000);
+            parallelDequeTest(simple2, 10);
+            System.out.println("SimpleDeque Tests Completed");
+        }
 
         static void sequentialDequeTest(Deque<Integer> queue) throws Exception{
             //Check that it only returns null
@@ -655,67 +672,65 @@ class SimpleDeque<T> implements Deque<T> {
 
 // PSEUDOCODE for ChaseLevDeque class:
 
-/* 
-   class ChaseLevDeque<T> implements Deque<T> {
-   long bottom = 0, top = 0;
-   T[] items;
+class ChaseLevDeque<T> implements Deque<T> {
+    volatile long bottom = 0; 
+    AtomicLong top = new AtomicLong(0);
+    T[] items;
 
-   public SimpleChaseLevDeque(int size) {
-   this.items = makeArray(size);
-   }
+    public ChaseLevDeque(int size) {
+        this.items = makeArray(size);
+    }
 
-   @SuppressWarnings("unchecked") 
-   private static <T> T[] makeArray(int size) {
-// Java's @$#@?!! type system requires this unsafe cast    
-return (T[])new Object[size];
-   }
+    @SuppressWarnings("unchecked") 
+    private static <T> T[] makeArray(int size) {
+        // Java's @$#@?!! type system requires this unsafe cast    
+        return (T[])new Object[size];
+    }
 
-   private static int index(long i, int n) {
-   return (int)(i % (long)n);
-   }
+    private static int index(long i, int n) {
+        return (int)(i % (long)n);
+    }
 
-   public void push(T item) { // at bottom
-   final long b = bottom, t = top, size = b - t;
-   if (size == items.length) 
-   throw new RuntimeException("queue overflow");
-   items[index(b, items.length)] = item;
-   bottom = b+1;
-   }
+    public void push(T item) { // at bottom
+        final long b = bottom, t = top.get(), size = b - t;
+        if (size == items.length) 
+            throw new RuntimeException("queue overflow");
+        items[index(b, items.length)] = item;
+        bottom = b+1;
+    }
 
-   public T pop() { // from bottom
-   final long b = bottom - 1, t = top, afterSize = b - t;
-   bottom = b;
-   if (afterSize < 0) { // empty before call
-   bottom = t;
-   return null;
-   } else {
-   T result = items[index(b, items.length)];
-   if (afterSize > 0) // non-empty after call
-   return result;
-   else {		// became empty, update both top and bottom
-   if (!CAS(top, t, t+1)) // somebody stole result
-   result = null;
-   bottom = t+1;
-   return result;
-   }
-   }
-   }
+    public T pop() { // from bottom
+        final long b = bottom - 1, t = top.get(), afterSize = b - t;
+        bottom = b;
+        if (afterSize < 0) { // empty before call
+            bottom = t;
+            return null;
+        } else {
+            T result = items[index(b, items.length)];
+            if (afterSize > 0) // non-empty after call
+                return result;
+            else {		// became empty, update both top and bottom
+                if (!top.compareAndSet(t, t+1)) // somebody stole result
+                    result = null;
+                bottom = t+1;
+                return result;
+            }
+        }
+    }
 
-   public T steal() { // from top
-   final long b = bottom, t = top, size = b - t;
-   if (size <= 0)
-   return null;
-   else {
-   T result = items[index(t, items.length)];
-   if (CAS(top, t, t+1))
-   return result;
-   else 
-   return null;
-   }
-   }
-   }
-
-*/
+    public T steal() { // from top
+        final long b = bottom, t = top.get(), size = b - t;
+        if (size <= 0)
+            return null;
+        else {
+            T result = items[index(t, items.length)];
+            if (top.compareAndSet(t, t+1))
+                return result;
+            else 
+                return null;
+        }
+    }
+}
 
 // ----------------------------------------------------------------------
 
