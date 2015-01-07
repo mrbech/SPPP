@@ -90,4 +90,89 @@ After:
 ```
 
 #Question 4
+I have used a few helper functions:
+From the course: assertEquals, assertTrue.
+Own: assertNull, awaitBarrier. Can be found in appendix
+\ref{appendix_helper_methods}
 
+```
+static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
+    CyclicBarrier barrier = new CyclicBarrier((threadCount*3)+1);
+    int pushedSum = 0;
+    
+    //Start pushing threads
+    LongAdder pushed = new LongAdder();
+    for(int t = 0; t < threadCount; t++){
+        final int lt = t;
+        new Thread(()->{
+            awaitBarrier(barrier);
+            long p = 0;
+            for(int i = 0; i < 1_000_000; i++){
+                Random random = new Random();
+                int r = random.nextInt() % 1000;
+                p += r;
+                queue.push(r);
+            }
+            pushed.add(p);
+            awaitBarrier(barrier);
+        }).start();
+    }
+
+    //Start pop threads
+    LongAdder popped = new LongAdder();
+    for(int t = 0; t < threadCount; t++){
+        final int lt = t;
+        new Thread(()->{
+            awaitBarrier(barrier);
+            long pop = 0;
+            for(int i = 0; i < 1_000_000; i++){
+                Integer p = queue.pop();
+                if(p != null){
+                    pop += p;
+                }
+            }
+            popped.add(pop);
+            awaitBarrier(barrier);
+        }).start();
+    }
+    //Start stealing threads
+    LongAdder stolen = new LongAdder();
+    for(int t = 0; t < threadCount; t++){
+        final int lt = t;
+        new Thread(()->{
+            awaitBarrier(barrier);
+            long s = 0;
+            for(int i = 0; i < 1_000_000; i++){
+                Integer p = queue.steal();
+                if(p != null){
+                    s += p;
+                }
+            }
+            stolen.add(s);
+            awaitBarrier(barrier);
+        }).start();;
+    }
+
+    //Start test
+    awaitBarrier(barrier);
+    //Wait for the test to stop
+    awaitBarrier(barrier);
+
+    //Get the remaining sum
+    long remaining = 0;
+    Integer p = queue.pop();
+    while(p != null){
+        remaining += p;
+        p = queue.pop();
+    }
+
+    //Get the sum of the threads
+    long pushedsum = pushed.sum();
+    long retrievedsum = remaining + popped.sum() + stolen.sum();
+
+    //Check that sum matches
+    assertEquals(retrievedsum, pushedsum);
+}
+```
+
+#Question 5

@@ -10,27 +10,167 @@
 // D: multi-queue multi-threaded with thread-local lock-based queues and stealing
 // E: as D but with thread-local lock-free queues and stealing
 
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.concurrent.GuardedBy;
+import java.util.Random;
 
 public class Quicksorts {
     final static int size = 1_000_000; // Number of integers to sort
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         sequentialRecursive();
         singleQueueSingleThread();
         singleQueueMultiThread(8);
         //    multiQueueMultiThread(8);
         //    multiQueueMultiThreadCL(8);
+        Tests.runTests();
     }
 
     // ----------------------------------------------------------------------
     // Testing
 
-    public static void runTests(){
-        //Test SimpleDeque
+    static class Tests {
+        static void runTests() throws Exception{
+            //Test SimpleDeque
+            SimpleDeque<Integer> simple = new SimpleDeque<Integer>(100_000_000);
+            sequentialDequeTest(simple);
+            SimpleDeque<Integer> simple2 = new SimpleDeque<Integer>(100_000_000);
+            parallelDequeTest(simple2, 3);
+        }
+
+        static void sequentialDequeTest(Deque<Integer> queue) throws Exception{
+            //Check that it only returns null
+            assertNull(queue.pop());
+            assertNull(queue.steal());
+
+            //Check that pop/push works on single insert
+            queue.push(42);
+            assertEquals(42, queue.pop());
+            assertNull(queue.pop());
+
+            //Check that steal work on single insert
+            queue.push(43);
+            assertEquals(43, queue.steal());
+            assertNull(queue.pop());
+
+            queue.push(44);
+            queue.push(45);
+            queue.push(46);
+
+            //Check that steal takes from the back
+            assertEquals(44, queue.steal());
+
+            //Check that pop takes from the front
+            assertEquals(46, queue.pop());
+            
+        }
+
+        static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
+            CyclicBarrier barrier = new CyclicBarrier((threadCount*3)+1);
+            int pushedSum = 0;
+            
+            //Start pushing threads
+            LongAdder pushed = new LongAdder();
+            for(int t = 0; t < threadCount; t++){
+                final int lt = t;
+                new Thread(()->{
+                    awaitBarrier(barrier);
+                    long p = 0;
+                    for(int i = 0; i < 1_000_000; i++){
+                        Random random = new Random();
+                        int r = random.nextInt() % 1000;
+                        p += r;
+                        queue.push(r);
+                    }
+                    pushed.add(p);
+                    awaitBarrier(barrier);
+                }).start();
+            }
+
+            //Start pop threads
+            LongAdder popped = new LongAdder();
+            for(int t = 0; t < threadCount; t++){
+                final int lt = t;
+                new Thread(()->{
+                    awaitBarrier(barrier);
+                    long pop = 0;
+                    for(int i = 0; i < 1_000_000; i++){
+                        Integer p = queue.pop();
+                        if(p != null){
+                            pop += p;
+                        }
+                    }
+                    popped.add(pop);
+                    awaitBarrier(barrier);
+                }).start();
+            }
+            //Start stealing threads
+            LongAdder stolen = new LongAdder();
+            for(int t = 0; t < threadCount; t++){
+                final int lt = t;
+                new Thread(()->{
+                    awaitBarrier(barrier);
+                    long s = 0;
+                    for(int i = 0; i < 1_000_000; i++){
+                        Integer p = queue.steal();
+                        if(p != null){
+                            s += p;
+                        }
+                    }
+                    stolen.add(s);
+                    awaitBarrier(barrier);
+                }).start();;
+            }
+
+            //Start test
+            awaitBarrier(barrier);
+            //Wait for the test to stop
+            awaitBarrier(barrier);
+
+            //Get the remaining sum
+            long remaining = 0;
+            Integer p = queue.pop();
+            while(p != null){
+                remaining += p;
+                p = queue.pop();
+            }
+
+            //Get the sum of the threads
+            long pushedsum = pushed.sum();
+            long retrievedsum = remaining + popped.sum() + stolen.sum();
+
+            //Check that sum matches
+            assertEquals(retrievedsum, pushedsum);
+        }
+
+        static void assertEquals(long x, long y) throws Exception {
+            if (x != y) 
+                throw new Exception(String.format("ERROR: %d not equal to %d%n", x, y));
+        }
+
+        public static void assertTrue(boolean b) throws Exception {
+            if (!b) 
+                throw new Exception(String.format("ERROR: assertTrue"));
+        }
+
+        public static void assertNull(Object o) throws Exception {
+            if(o != null)
+                throw new Exception(String.format("ERROR: assertNull"));
+        }
+
+        /**
+         * What is up with this checked exception madness
+         */
+        public static void awaitBarrier(CyclicBarrier c){
+            try{
+                c.await();
+            }catch(Exception e){
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
