@@ -3,7 +3,7 @@
 
 #Helper methods
 \label{appendix_helper_methods}
-```
+```java
 public static void assertNull(Object o) throws Exception {
     if(o != null)
         throw new Exception(String.format("ERROR: assertNull"));

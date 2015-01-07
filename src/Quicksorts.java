@@ -21,13 +21,16 @@ public class Quicksorts {
     final static int size = 1_000_000; // Number of integers to sort
 
     public static void main(String[] args) throws Exception {
-        sequentialRecursive();
-        singleQueueSingleThread();
-        singleQueueMultiThread(8);
+        //sequentialRecursive();
+        //singleQueueSingleThread();
+        //singleQueueMultiThread(8);
         //    multiQueueMultiThread(8);
         //    multiQueueMultiThreadCL(8);
-        Tests.runTests();
+        //Tests.runTests();
+        Tests.benchmarkSingleQueueMultiThread();
     }
+
+
 
     // ----------------------------------------------------------------------
     // Testing
@@ -40,6 +43,76 @@ public class Quicksorts {
             SimpleDeque<Integer> simple2 = new SimpleDeque<Integer>(100_000_000);
             parallelDequeTest(simple2, 3);
         }
+        // ----------------------------------------------------------------------
+        // Question 5
+        public static void benchmarkSingleQueueMultiThread(){
+            System.out.println("Threads\tTime");
+            for(int i = 1; i<9; i++){
+                double time = sqmtBenchMarkVersion(i);
+                System.out.println(i + "\t" + time);
+            }
+        }
+
+        public static double sqmtBenchMarkVersion(int threadCount){
+            SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
+            int[] array = IntArrayUtil.randomIntArray(20_000_000);
+            queue.push(new SortTask(array, 0, array.length-1));
+            CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
+
+            //Initialize ongoing counter with the size of the queue
+            //We assume the queue only has a single task
+            LongAdder ongoing = new LongAdder();
+            ongoing.increment();
+
+            //Creating threads:
+            Thread[] threads = new Thread[threadCount];
+            for(int t = 0; t < threadCount; t++){
+                threads[t] = new Thread(()->{
+                    awaitBarrier(barrier);
+                    SortTask task;
+                    while (null != (task = getTask(queue, ongoing))) {
+                        //We have a task now partition!
+                        final int[] arr = task.arr;
+                        final int a = task.a, b = task.b;
+                        if (a < b) { 
+                            int i = a, j = b;
+                            int x = arr[(i+j) / 2];         
+                            do {                            
+                                while (arr[i] < x) i++;       
+                                while (arr[j] > x) j--;       
+                                if (i <= j) {
+                                    swap(arr, i, j);
+                                    i++; j--;
+                                }                             
+                            } while (i <= j); 
+
+                            //Increment the counter when pushing
+                            queue.push(new SortTask(arr, a, j));
+                            ongoing.increment();
+                            queue.push(new SortTask(arr, i, b));
+                            ongoing.increment();
+                        }
+                        //We have sorted something, time to decrement
+                        ongoing.decrement();
+                    }
+                    awaitBarrier(barrier);
+                });
+                //Start the thread
+                threads[t].start();
+            }
+
+            //Waiting for threads
+            awaitBarrier(barrier);
+            //Threads started
+            Timer t = new Timer();
+            awaitBarrier(barrier);
+            //Threads done
+            return t.check();
+
+        }
+
+        // ----------------------------------------------------------------------
+        // Question 4
 
         static void sequentialDequeTest(Deque<Integer> queue) throws Exception{
             //Check that it only returns null

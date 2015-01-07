@@ -1,4 +1,27 @@
 \pagebreak
 \appendix
 
-\section{Test Appendix}\label{test-appendix}
+\section{Helper methods}\label{helper-methods}
+
+\label{appendix_helper_methods}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{public} \DataTypeTok{static} \DataTypeTok{void} \FunctionTok{assertNull}\NormalTok{(Object o) }\KeywordTok{throws} \NormalTok{Exception \{}
+    \KeywordTok{if}\NormalTok{(o != }\KeywordTok{null}\NormalTok{)}
+        \KeywordTok{throw} \KeywordTok{new} \NormalTok{Exception(String}\FunctionTok{.format}\NormalTok{(}\StringTok{"ERROR: assertNull"}\NormalTok{));}
+\NormalTok{\}}
+
+\CommentTok{/**}
+\CommentTok{ * What is up with this checked exception madness}
+\CommentTok{ */}
+\KeywordTok{public} \DataTypeTok{static} \DataTypeTok{void} \FunctionTok{awaitBarrier}\NormalTok{(CyclicBarrier c)\{}
+    \KeywordTok{try}\NormalTok{\{}
+        \NormalTok{c.}\FunctionTok{await}\NormalTok{();}
+    \NormalTok{\}}\KeywordTok{catch}\NormalTok{(Exception e)\{}
+        \KeywordTok{throw} \KeywordTok{new} \NormalTok{RuntimeException(e);}
+    \NormalTok{\}}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
