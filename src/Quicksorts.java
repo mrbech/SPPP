@@ -27,6 +27,14 @@ public class Quicksorts {
     }
 
     // ----------------------------------------------------------------------
+    // Testing
+
+    public static void runTests(){
+        //Test SimpleDeque
+    }
+
+
+    // ----------------------------------------------------------------------
     // Version A: Standard sequential quicksort using recursion
 
     private static void sequentialRecursive() {
@@ -96,32 +104,64 @@ public class Quicksorts {
 
     private static void singleQueueMultiThread(final int threadCount) {
         SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
-        int[] arr = IntArrayUtil.randomIntArray(size);
-        // To do: ... create queue, then call sqmtWorkers(queue, threadCount)
-        //sqmtWorkers(queue, threadCount);
+        //int[] arr = IntArrayUtil.randomIntArray(size);
+        int[] arr = IntArrayUtil.randomIntArray(20);
+        IntArrayUtil.printout(arr, 20);
+
+
+        queue.push(new SortTask(arr, 0, arr.length-1));
+        sqmtWorkers(queue, threadCount);
+
         System.out.println(IntArrayUtil.isSorted(arr));
+        IntArrayUtil.printout(arr, 20);
     }
 
     private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
-        // To do: ... create and start threads and so on ...
-        SortTask task;
-        while (null != (task = queue.pop())) {
-            final int[] arr = task.arr;
-            final int a = task.a, b = task.b;
-            if (a < b) { 
-                int i = a, j = b;
-                int x = arr[(i+j) / 2];         
-                do {                            
-                    while (arr[i] < x) i++;       
-                    while (arr[j] > x) j--;       
-                    if (i <= j) {
-                        swap(arr, i, j);
-                        i++; j--;
-                    }                             
-                } while (i <= j); 
-                queue.push(new SortTask(arr, a, j)); 
-                queue.push(new SortTask(arr, i, b));               
-            }
+        //Initialize ongoing counter with the size of the queue
+        //We assume the queue only has a single task
+        LongAdder ongoing = new LongAdder();
+        ongoing.increment();
+
+        //Creating threads:
+        Thread[] threads = new Thread[threadCount];
+        for(int t = 0; t < threadCount; t++){
+            threads[t] = new Thread(()->{
+                SortTask task;
+                while (null != (task = getTask(queue, ongoing))) {
+                    //We have a task now partition!
+                    final int[] arr = task.arr;
+                    final int a = task.a, b = task.b;
+                    if (a < b) { 
+                        int i = a, j = b;
+                        int x = arr[(i+j) / 2];         
+                        do {                            
+                            while (arr[i] < x) i++;       
+                            while (arr[j] > x) j--;       
+                            if (i <= j) {
+                                swap(arr, i, j);
+                                i++; j--;
+                            }                             
+                        } while (i <= j); 
+
+                        //Increment the counter when pushing
+                        queue.push(new SortTask(arr, a, j));
+                        ongoing.increment();
+                        queue.push(new SortTask(arr, i, b));
+                        ongoing.increment();
+                    }
+                    //We have sorted something, time to decrement
+                    ongoing.decrement();
+                }
+            });
+            //Start the thread
+            threads[t].start();
+        }
+
+        //Wait for the threads to finish
+        for(int t = 0; t < threadCount; t++){
+            try{
+                threads[t].join();
+            }catch(InterruptedException e){}
         }
     }
 
