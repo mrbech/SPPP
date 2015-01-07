@@ -279,3 +279,90 @@ public static double sqmtBenchMarkVersion(int threadCount){
 ```
 
 #Question 6
+
+```java
+    private static void multiQueueMultiThreadCL(final int threadCount) {
+        int[] arr = IntArrayUtil.randomIntArray(size);
+        // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
+        System.out.println(IntArrayUtil.isSorted(arr));
+    }
+
+    private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
+        //Initialize ongoing counter with the size of the queue
+        //We assume the queue only has a single task
+        LongAdder ongoing = new LongAdder();
+        ongoing.increment();
+
+        //Creating threads:
+        Thread[] threads = new Thread[threadCount];
+        for(int t = 0; t < threadCount; t++){
+            final int tl = t;
+            threads[t] = new Thread(()->{
+                SortTask task;
+                while (null != (task = getTask(tl, queues, ongoing))) {
+                    //We have a task now partition!
+                    final int[] arr = task.arr;
+                    final int a = task.a, b = task.b;
+                    if (a < b) { 
+                        int i = a, j = b;
+                        int x = arr[(i+j) / 2];         
+                        do {                            
+                            while (arr[i] < x) i++;       
+                            while (arr[j] > x) j--;       
+                            if (i <= j) {
+                                swap(arr, i, j);
+                                i++; j--;
+                            }                             
+                        } while (i <= j); 
+
+                        //Increment the counter when pushing
+                        queues[tl].push(new SortTask(arr, a, j));
+                        ongoing.increment();
+                        queues[tl].push(new SortTask(arr, i, b));
+                        ongoing.increment();
+                    }
+                    //We have sorted something, time to decrement
+                    ongoing.decrement();
+                }
+            });
+            //Start the thread
+            threads[t].start();
+        }
+
+        //Wait for the threads to finish
+        for(int t = 0; t < threadCount; t++){
+            try{
+                threads[t].join();
+            }catch(InterruptedException e){}
+        }
+    }
+
+    // Tries to get a sorting task.  If task queue is empty, repeatedly
+    // try to steal, cyclically, from other threads and if that fails,
+    // yield and then try again, while some sort tasks are not processed.
+
+    private static SortTask getTask(final int myNumber, final Deque<SortTask>[] queues, 
+            LongAdder ongoing) {
+        final int threadCount = queues.length;
+        SortTask task = queues[myNumber].pop();
+        if (null != task) 
+            return task;
+        else {
+            do {
+                //Lets try to steal a task from someone...
+                for(int i = 0; i < queues.length; i++){
+                    if(i != myNumber){
+                        task = queues[i].steal();
+                        if(task != null){
+                            return task;
+                        }
+                    }
+                }
+                Thread.yield();
+            } while (ongoing.longValue() > 0);
+            return null;
+        }
+    }
+```
+
+#Question 7
