@@ -5,3 +5,5 @@
     Martin Rønning Bech (mrob@itu.dk)
     }
 \maketitle
+\fbox{\minibox{\textbf{I hereby declare that I have answered these exam questions myself}\\
+\textbf{without any outside help.} \\ \hfill Martin Rønning Bech - 2015-01-08}}

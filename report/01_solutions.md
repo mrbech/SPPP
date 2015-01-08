@@ -1,23 +1,26 @@
 #Question 1:
-To make the *SimpleDeque* thread safe we can apply the Java Monitor Pattern,
-that is that any mutable state is put in private fields and are guarded by the
-objects own lock. 
+In this question we have to make the given *SimpleDeque* thread safe using
+locks. To make the *SimpleDeque* thread safe we can apply the Java Monitor
+Pattern, that is to make sure that any mutable state that is put in private
+fields are guarded by the *SimpleDeque* object lock.
 
 So in our *SimpleDeque* we ensure that *items*, *bottom* and *top* are private
 and are *GuardedBy("this")*. We then make the public method's *push*, *pop* and
-*steal* *syncronized*. These changes makes the class threadsafe by ensuring that
-only a single thread will ever be allowed to make updates to its internal
-mutable state. 
+*steal* *syncronized*. These changes makes the *SimpleDeque* objects thread safe
+by ensuring that only a single thread will ever be allowed to make updates to
+their individual internal mutable state. 
 
 The *GuardedBy("this")* annotations are added to all internal state that needs
-to be guarded by object lock, this is to communicate to others that any updates
-made by these fields must only be done when the *this* lock is taken, it is also
-useful in combination with tools that can be used to detect if the correct lock
-is always taken when access are made to the field.
+to be guarded by the objects lock, this is to communicate to others that any
+updates made to these fields must only be done when the *this* lock is taken, it
+is also useful in combination with tools that can be used to detect if the
+correct lock is always taken when access are made to the fields.
 
 ```java
 @GuardedBy("this")
-private long bottom = 0, top = 0;
+private long bottom = 0;
+@GuardedBy("this")
+private long top = 0;
 @GuardedBy("this")
 private final T[] items;
 
@@ -27,13 +30,30 @@ public synchronized T steal() {...}
 ```
 
 #Question 2
-The SortTask is a immutable object, this is done by making the public fields
+The *SortTask* is an immutable object, this is done by making the public fields
 *final*. By being immutable we ensure that after its creation no one can update
-it, so we can safely pass it around threads. Any thread that needs to do an
-"update" of the *SortTask* will instead have to create a new instance with the
-updated values.
+the instance, so we can safely pass it around in different threads. Any thread
+that needs to do an "update" of the *SortTask* will instead have to create a new
+instance with the updated values.
 
 #Question 3
+In this question we implement a multi threaded Quicksort that uses a single
+shared queue to communicate sorting tasks. I how broken my code into three
+functions: *singleQueueMultiThread* that runs a small test case and prints it to
+the console, *sqmtWorkers* that starts the worker threads, *sqmtWorker* that
+contains the code for a single worker thread. Below I will explain how each
+function works, afterwards I will show a tests run and finally I will explain
+why the implementation is thread safe.
+
+
+The *singleQueueMultiThread* implementation found below is quite simple, it
+creates a *SimpleDeque* instance and an array with random integers we want to
+sort (using the *randomIntArray* method given with the assignment). It then
+prints the array before sorting using the *IntArrayUtil.printout* method given
+with the assignment, runs the *sqmtWorkers* sorting method and finally prints
+the resulting array and the result of running *isSorted* helper method given
+with the assignment.
+
 ```java
 private static void singleQueueMultiThread(final int threadCount) {
     System.out.println("Running singleQueueMultiThread");
@@ -53,7 +73,14 @@ private static void singleQueueMultiThread(final int threadCount) {
     System.out.println("Sorted:");
     System.out.println(IntArrayUtil.isSorted(arr));
 }
+```
 
+The *sqmtWorkers* implementation takes a *Deque* and a *threadCount*. It then
+creates a *LongAdder* instance for keeping track of the amount of ongoing work.
+It then spawn *threadCount* amount of *sqmtWorker* threads and finally waits for
+them all to finish.
+
+```java
 /**
  * Function for starting singleQueueMultiThread workers
  */
@@ -78,7 +105,25 @@ private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
         }catch(InterruptedException e){}
     }
 }
+```
 
+The *sqmtWorker* implementation works by first getting a new task (using the
+helper *SortTask* helper method given by the assignment, that first tries to
+take a task from the queue, if there are none left it will see if there is any
+ongoing worker, if there is it yield the thread to wait for more work to appear
+in the queue, if there isn't any ongoing work it will return null). 
+
+If the worker gets a task it will take the information from the task, if the
+array needs to be partitioned ($a < b$) it will do so and finally add two new
+sorting tasks to the queue, as well as increment the ongoing counter after each
+task has been added. Finally when so work have been done (partitioned or not) it
+will decrement the ongoing counter. 
+
+We are ensured that the entire thing will terminate because by the end all tasks
+should no longer need to be partitioned and the ongoing counter will therefore
+be decremented to zero.
+
+```java
 /**
  * Function for a singleQueueMultiThread worker
  */
@@ -112,7 +157,9 @@ private static void sqmtWorker(Deque<SortTask> queue, LongAdder ongoing){
 }
 ```
 
-Output:
+Below output from running the *singleQueueMultiThread* method with 8 threads can
+be seen. As expected the array is sorted.
+
 ```
 Running singleQueueMultiThread
 Before:
@@ -123,11 +170,32 @@ Sorted:
 true
 ```
 
+So the array gets sorted, the implementation is thread safe because (1) the
+queue object we are using is thread safe a task will never be delegated to more
+than one thread and multiple accesses to the queue will never break the queue,
+and (2) the worker threads will never accesses the same part of the array at the
+same time this is due to the nature of the quick sort algorithm, notice that at
+any given time there will only ever exists a task (recursive step in the normal
+algorithm) going from some $a$ to some $b$ and there will be no overlap.
+
 #Question 4
-I have used a few helper functions:
-From the course: assertEquals, assertTrue.
-Own: assertNull, awaitBarrier. Can be found in appendix
-\ref{appendix_helper_methods}
+In this question we write tests for the *SimpleDeque* implementation made in
+Question 1. First we write a sequential test that tests that the *SimpleDeque*
+works as expect using only a single thread. Then we write a parallel tests that
+tries to tests if the implementation works when accessed by multiple threads.
+For the tests I have used the *assertEquals* and *assertTrue* methods given in
+the course material from week 9 as well as introduced two new helper methods
+*assertNull* and *awaitBarrier* all the helper methods can be found in appendix
+\ref{appendix_helper_methods}.
+
+In the *sequentialDequeTest* we test that the general functionality of the
+given *Deque* works. First we tests that *pop* and *steal* will return *null*
+when the *Deque* is empty. We then tests that putting a single element into the
+queue will make *pop* return it again and again testing that using *pop* now
+will yield *null* we do this for *steal* as well. Finally we fill the queue with
+3 element and tests that *steal* will give the element first inserted and *pop*
+will give the element last inserted. These tests should cover the general
+functionality of the *Deque*.
 
 ```java
 static void sequentialDequeTest(Deque<Integer> queue) throws Exception{
@@ -158,8 +226,30 @@ static void sequentialDequeTest(Deque<Integer> queue) throws Exception{
 }
 ```
 
+Now comes the *parallelDequeTest*. In this tests we start 4 kind of threads:
+
+* Pushing threads that will *push* one million random integers between 0-9999 into
+  the *Deque*
+* Popping threads that will *pop* one million integers from the *Deque*
+* Stealing threads that will *steal* one million integers from the *Deque*
+* Main thread that starts all the threads, waits and checks the result.
+
+Each of the different kind of threads will have local *long* sum counter that
+they will continuously update when the have pushed, popped or stolen a value
+from the *Deque*. When they have completed their work they will add their local
+*long* sum value to a shared *LongAdder* between the threads. The threads are
+synchronized using a *CyclicBarrier* so they wait for all threads to have
+started and completed.
+
+The main thread starts all the threads, it then waits first for all of them to
+start then for all of them to finish. After all threads have completed it
+empties to *Deque* and sums the remaining values. The implementation then sums
+the sum of the remaining values, the sum of the values popped and the sum of the
+values stolen and compares the result with the sum of the values pushed. 
+
 ```java
-static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
+static void parallelDequeTest(Deque<Integer> queue,
+     int threadCount) throws Exception {
     CyclicBarrier barrier = new CyclicBarrier((threadCount*3)+1);
     int pushedSum = 0;
     
@@ -237,8 +327,12 @@ static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exce
     assertEquals(retrievedsum, pushedsum);
 }
 ```
+I have run the tests on my *SimpleDeque* implementation multiple times using
+different amount of threads and it seems to pass every time.
 
-Mutation to find errors!
+To see if these tests will actually be able to find errors in my implementation
+I have done the following mutations if my implementation:
+
 
 #Question 5
 With 20 million integers:

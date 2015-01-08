@@ -21,14 +21,14 @@ public class Quicksorts {
     final static int size = 1_000_000; // Number of integers to sort
 
     public static void main(String[] args) throws Exception {
-        sequentialRecursive();
-        singleQueueSingleThread();
-        singleQueueMultiThread(8);
-        multiQueueMultiThread(8);
-        multiQueueMultiThreadCL(8);
-        Tests.benchmarkSingleQueueMultiThread();
-        Tests.benchMarkMultiQueueMultiThread();
-        Tests.benchMarkMultiCLQueueMultiThread();
+        //sequentialRecursive();
+        //singleQueueSingleThread();
+        //singleQueueMultiThread(8);
+        //multiQueueMultiThread(8);
+        //multiQueueMultiThreadCL(8);
+        //Tests.benchmarkSingleQueueMultiThread();
+        //Tests.benchMarkMultiQueueMultiThread();
+        //Tests.benchMarkMultiCLQueueMultiThread();
         Tests.runTests();
     }
 
@@ -150,8 +150,14 @@ public class Quicksorts {
             System.out.println("Running ChaseLevDeque Tests");
             ChaseLevDeque<Integer> cl = new ChaseLevDeque<Integer>(100_000_000);
             sequentialDequeTest(cl);
-            ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
-            parallelCLDequeTest(cl2, 10);
+            for(int i = 0; i < 100; i++){
+                try{
+                ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
+                parallelCLDequeTest(cl2, 10);
+                }catch(Exception e){
+                    System.out.println("Failed: " + e);
+                }
+            }
             System.out.println("ChaseLevDeque Tests Completed");
         }
 
@@ -166,7 +172,7 @@ public class Quicksorts {
                 awaitBarrier(barrier);
                 long p = 0;
                 long pop = 0;
-                for(int i = 0; i < 1_000_000; i++){
+                for(int i = 0; i < 400_000_000; i++){
                     Random random = new Random();
                     if((random.nextInt() % 2) == 0){
                         int r = random.nextInt() % 100;
@@ -192,7 +198,7 @@ public class Quicksorts {
                 new Thread(()->{
                     awaitBarrier(barrier);
                     long s = 0;
-                    for(int i = 0; i < 1_000_000; i++){
+                    for(int i = 0; i < 400_000_000; i++){
                         Integer p = queue.steal();
                         if(p != null){
                             s += p;
@@ -745,8 +751,8 @@ class SimpleDeque<T> implements Deque<T> {
 
 class ChaseLevDeque<T> implements Deque<T> {
     volatile long bottom = 0; 
-    AtomicLong top = new AtomicLong(0);
-    T[] items;
+    final AtomicLong top = new AtomicLong(0);
+    final T[] items;
 
     public ChaseLevDeque(int size) {
         this.items = makeArray(size);
@@ -771,8 +777,10 @@ class ChaseLevDeque<T> implements Deque<T> {
     }
 
     public T pop() { // from bottom
-        final long b = bottom - 1, t = top.get(), afterSize = b - t;
+        final long b = bottom - 1;
         bottom = b;
+        final long t = top.get(), afterSize = b - t;
+
         if (afterSize < 0) { // empty before call
             bottom = t;
             return null;
@@ -790,7 +798,7 @@ class ChaseLevDeque<T> implements Deque<T> {
     }
 
     public T steal() { // from top
-        final long b = bottom, t = top.get(), size = b - t;
+        final long t = top.get(), b = bottom, size = b - t;
         if (size <= 0)
             return null;
         else {

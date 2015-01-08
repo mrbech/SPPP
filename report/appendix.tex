@@ -12,16 +12,45 @@
         \KeywordTok{throw} \KeywordTok{new} \NormalTok{Exception(String}\FunctionTok{.format}\NormalTok{(}\StringTok{"ERROR: assertNull"}\NormalTok{));}
 \NormalTok{\}}
 
-\CommentTok{/**}
-\CommentTok{ * What is up with this checked exception madness}
-\CommentTok{ */}
 \KeywordTok{public} \DataTypeTok{static} \DataTypeTok{void} \FunctionTok{awaitBarrier}\NormalTok{(CyclicBarrier c)\{}
+    \CommentTok{//What is up with this checked exception madness}
     \KeywordTok{try}\NormalTok{\{}
         \NormalTok{c.}\FunctionTok{await}\NormalTok{();}
     \NormalTok{\}}\KeywordTok{catch}\NormalTok{(Exception e)\{}
         \KeywordTok{throw} \KeywordTok{new} \NormalTok{RuntimeException(e);}
     \NormalTok{\}}
 \NormalTok{\}}
+
+\DataTypeTok{static} \DataTypeTok{void} \FunctionTok{assertEquals}\NormalTok{(}\DataTypeTok{long} \NormalTok{x, }\DataTypeTok{long} \NormalTok{y) }\KeywordTok{throws} \NormalTok{Exception \{}
+    \KeywordTok{if} \NormalTok{(x != y) }
+        \KeywordTok{throw} \KeywordTok{new} \NormalTok{Exception(String}\FunctionTok{.format}\NormalTok{(}\StringTok{"ERROR: }\CharTok{%d}\StringTok{ not equal to }\CharTok{%d%n}\StringTok{"}\NormalTok{, x, y));}
+\NormalTok{\}}
+
+\KeywordTok{public} \DataTypeTok{static} \DataTypeTok{void} \FunctionTok{assertTrue}\NormalTok{(}\DataTypeTok{boolean} \NormalTok{b) }\KeywordTok{throws} \NormalTok{Exception \{}
+    \KeywordTok{if} \NormalTok{(!b) }
+        \KeywordTok{throw} \KeywordTok{new} \NormalTok{Exception(String}\FunctionTok{.format}\NormalTok{(}\StringTok{"ERROR: assertTrue"}\NormalTok{));}
+\NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
 
+\section{Chase-Lev Output}\label{chase-lev-output}
+
+Failed: java.lang.Exception: ERROR: -182875 not equal to -182817
+
+Failed: java.lang.Exception: ERROR: 155085 not equal to 155018
+
+Failed: java.lang.Exception: ERROR: 227353 not equal to 227306
+
+Failed: java.lang.Exception: ERROR: -668438 not equal to -668421
+
+Failed: java.lang.Exception: ERROR: -573121 not equal to -573045
+
+Failed: java.lang.Exception: ERROR: -552821 not equal to -552897
+
+Failed: java.lang.Exception: ERROR: 663331 not equal to 663407
+
+Failed: java.lang.Exception: ERROR: 847382 not equal to 847403
+
+Failed: java.lang.Exception: ERROR: -368363 not equal to -368236
+
+Failed: java.lang.Exception: ERROR: -531851 not equal to -531807
