@@ -238,6 +238,8 @@ static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exce
 }
 ```
 
+Mutation to find errors!
+
 #Question 5
 With 20 million integers:
 

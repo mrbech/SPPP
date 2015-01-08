@@ -266,7 +266,7 @@ public class Quicksorts {
         static void parallelDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
             CyclicBarrier barrier = new CyclicBarrier((threadCount*3)+1);
             int pushedSum = 0;
-            
+
             //Start pushing threads
             LongAdder pushed = new LongAdder();
             for(int t = 0; t < threadCount; t++){
