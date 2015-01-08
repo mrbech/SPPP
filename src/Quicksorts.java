@@ -24,12 +24,12 @@ public class Quicksorts {
         //sequentialRecursive();
         //singleQueueSingleThread();
         //singleQueueMultiThread(8);
-        //multiQueueMultiThread(8);
+        multiQueueMultiThread(8);
         //multiQueueMultiThreadCL(8);
         //Tests.benchmarkSingleQueueMultiThread();
         //Tests.benchMarkMultiQueueMultiThread();
         //Tests.benchMarkMultiCLQueueMultiThread();
-        Tests.runTests();
+        //Tests.runTests();
     }
 
 
@@ -140,8 +140,8 @@ public class Quicksorts {
 
         }
         static void runTests() throws Exception{
-            //runTestsSimpleDeque();
-            runTestChaseLevDeque();
+            runTestsSimpleDeque();
+            //runTestChaseLevDeque();
         }
 
         // ----------------------------------------------------------------------

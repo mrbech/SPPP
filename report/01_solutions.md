@@ -333,20 +333,24 @@ different amount of threads and it seems to pass every time.
 To see if these tests will actually be able to find errors in my implementation
 I have done the following mutations if my implementation:
 
+* Removing the statement that adds the *item* to the *items* list in the *push*
+  method, this gets caught by the sequential test.
+* Removing the decrement of *bottom* in the *pop* method, this gets caught by
+  the sequential test.
+* Removing the increment of *top* in steal, this gets caught by the sequential
+  test.
+* Different permutations of removing the *syncronized* keyword from *push*,
+  *pop* and *steal*. All permutations was found by the parallel test.
+
 
 #Question 5
-With 20 million integers:
+In this question we measure the wall clock time of the sorting process in the
+single-queue multi-threaded Quicksort from Question 3. First we show the
+implementation of the measurement code and then what execution time it produces.
 
-Threads  Time (Seconds)
--------  -------- 
-1        5.163053139
-2        7.496664894
-3        6.961242125
-4        7.567593447
-5        5.036839369
-6        4.811132867
-7        4.600989057
-8        4.53502937
+The *bencmarkSingleQueueMultiThread* method is a simple method that calls the
+benchmarking method with threadcount $1...8$ as well as printing the result to
+the console in a table like format.
 
 ```java
 public static void benchmarkSingleQueueMultiThread(){
@@ -356,7 +360,18 @@ public static void benchmarkSingleQueueMultiThread(){
         System.out.println(i + "\t" + time);
     }
 }
+```
 
+The *sqmtBenchMarkVersion* is the actual benchmark methods. This method takes a
+thread count, creates an instance of the SimpleDeque, an array of 20 million
+random integers, the ongoing counter and then starts all of the *sqmtWorker*
+threads.  It uses a *CyclicBarrier* to ensure that all of the threads starts at
+the same time and to start the timer after the threads have started execution
+and stopping after all threads are done, this is to avoid measuring the thread
+startup time. In the main thread we therefore wait for all threads to start,
+start the timer, wait for the threads to finish and stop the timer returning the
+resulting time.
+```java
 public static double sqmtBenchMarkVersion(int threadCount){
     SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
     int[] array = IntArrayUtil.randomIntArray(20_000_000);
@@ -391,7 +406,39 @@ public static double sqmtBenchMarkVersion(int threadCount){
 }
 ```
 
+I have run the tests on a Linux machine with 2 cores (4 hyper-threaded),
+compiled and run with OpenJDK Java 8. Below is the resulting table of sorting 20
+million integers using 1 to 8 threads. The measurements shows first a decrease in
+performance and then a slight increase, the extra overhead of all threads
+accessing the same queue does seem to some degree hinder the execution time of
+this implementation.
+
+Threads  Time (Seconds)
+-------  -------- 
+1        5.163053139
+2        7.496664894
+3        6.961242125
+4        7.567593447
+5        5.036839369
+6        4.811132867
+7        4.600989057
+8        4.53502937
+
+The test is obviously no completely accurate, but it does show something about
+the performance of the implementation. There are however a few things to not:
+
+* Its only a single sorting run. We do not repeat and average.
+* Its only shows the execution time on my specific machine.
+* It might be influenced by the software running on my machine.
+* It might be influenced by JVM optimizations, especially in the later runs.
+
 #Question 6
+In this question we create a multi-threaded multi-queue Quicksort. I will first
+show my implementation and explain why it works. I will then show the output of
+running the implementation.
+
+The *multiQueueMultiThread* is very similar to the *singleQueueMultiThread* (see
+Question 3) method, but instead it creates a list of SimpleDeques.
 
 ```java
 private static void multiQueueMultiThread(final int threadCount) {
@@ -415,7 +462,15 @@ private static void multiQueueMultiThread(final int threadCount) {
     System.out.println("Sorted:");
     System.out.println(IntArrayUtil.isSorted(arr));
 }
+```
 
+The *mqmtWorkers* is similar to *sqmtWorkers* (see Question 3). It now takes a
+list of *Deque* and assigns each thread worker a number thereby assigning each
+worker a *Deque* from the list. An interesting point here is that the first
+thread will initially be the only thread gets a task, it will then partition
+and the other threads will be able to steal the new tasks from it.
+
+```java
 private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
     //Initialize ongoing counter with the size of the queue
     //We assume the queue only has a single task
@@ -439,6 +494,11 @@ private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
     }
 }
 
+The *mqmtWorker* method is almost identical to the *sqmtWorker* (see Question
+3). It however uses the overloaded *getTask* method and pushes tasks to its
+assigned *Deque*.
+
+```java
 private static void mqmtWorker(Deque<SortTask>[] queues, int myNumber,
         LongAdder ongoing){
         SortTask task;
@@ -468,11 +528,21 @@ private static void mqmtWorker(Deque<SortTask>[] queues, int myNumber,
             ongoing.decrement();
         }
 } 
+```
 
-// Tries to get a sorting task.  If task queue is empty, repeatedly
-// try to steal, cyclically, from other threads and if that fails,
-// yield and then try again, while some sort tasks are not processed.
+The new *getTask* method now first tries to *pop* a task from the threads own
+queue, if this returns empty it will try to steal from all the other queues if
+it fails it will yield, finally it will check the ongoing value and if this is
+zero it will return null otherwise it will try to steal again. 
 
+The reason why this will terminate at some point is that a worker will only ever
+push to it's own queue and we can therefore assume that we will have to try to
+stealing until we find something or there is not more work and then we can
+conclude that we are finished, because when we are in the stealing loop that
+directly means there are no tasks in our queue. Other than that the points from
+Question 3 still applies.
+
+```java
 private static SortTask getTask(final int myNumber, final Deque<SortTask>[] queues, 
         LongAdder ongoing) {
     final int threadCount = queues.length;
@@ -497,17 +567,30 @@ private static SortTask getTask(final int myNumber, final Deque<SortTask>[] queu
 }
 ```
 
+Below output from running the  *multiQueueMultiThread* method with 8
+threads can be seen. As expected the array is sorted.
+
+```
+Running multiQueueMultiThread
+Before:
+23 39 3 21 30 16 6 5 13 19 34 36 14 14 29 33 31 14 1 31 
+After:
+1 3 5 6 13 14 14 14 16 19 21 23 29 30 31 31 33 34 36 39 
+Sorted:
+true
+```
+
 #Question 7
-Threads Time
-------- ----------
-1       4.673261823
-2       3.164645371
-3       2.573688754
-4       1.94583811
-5       2.272075977
-6       2.179852209
-7       1.950004463
-8       2.179962992
+In this question we have to measure the wall clock running time of the
+multi-queue multi-threaded Quicksort implementation from Question 6. First I
+show my measurement code I then show the result of running the measurement code
+on my machine and finally I comment on the differences between the execution
+time of the multi-queue multi-threaded Quicksort with results of running the
+single-queue multi-threaded Quicksort in Question 5.
+
+The *benchmarkMultiQueueMultiThread* method simply creates the list of
+*SimpleQueues* and calls the benchmarking method with threadcount from $1...8$
+and prints the result to the console in a table like format.
 
 ```java
 private static void benchMarkMultiQueueMultiThread() {
@@ -521,7 +604,15 @@ private static void benchMarkMultiQueueMultiThread() {
         System.out.println(i + "\t" + time);
     }
 }
+```
 
+The *mqmtBenchMarkVersion* method is similar to the *sqmtBenchMarkVersion*
+method from Question 5. It uses a *CyclicBarrier* to synchronize the execution
+start the threads and only starts the timer when all the threads have been
+started to avoid measuring the thread start overhead. It waits for all the
+threads to finish and then returns the resulting time.
+
+```java
 private static double mqmtBenchMarkVersion(int threadCount,
     Deque<SortTask>[] queues) {
     int[] array = IntArrayUtil.randomIntArray(20_000_000);
@@ -554,16 +645,44 @@ private static double mqmtBenchMarkVersion(int threadCount,
     //Threads done
     return t.check();
 }
-
 ```
+
+I have run the tests on Linux machine with 2 cores (4 hyper-threaded), compiled
+and run with OpenJDK Java 8 (Same as in Question 5). Below is the resulting
+table of sorting 20 million integers using 1 to 8 threads. The table shows a
+decent performance gain from adding multiple threads until 4 threads are added
+it then stays around the same execution time.
+
+Threads Time
+------- ----------
+1       4.673261823
+2       3.164645371
+3       2.573688754
+4       1.94583811
+5       2.272075977
+6       2.179852209
+7       1.950004463
+8       2.179962992
+
+For a short discussion of reasons why this tests is not accurate see Question 5.
+From this benchmark we see a clear benefit from adding more threads to the
+multi-threaded multi-queued Quicksort in comparison to the single-queued
+multi-threaded approach. The reason for this is most likely that we have reduced
+the actual overhead from the threads having to access the same queue all the
+time, with this implementation we mostly access our own queue and then sometimes
+when we run out of work steal from someone else. 
+
+I will also note that this implementation shows better performance on a single
+thread, but this is most likely purely by chance.
+
 
 #Question 8
 
 ```java
 class ChaseLevDeque<T> implements Deque<T> {
     volatile long bottom = 0; 
-    AtomicLong top = new AtomicLong(0);
-    T[] items;
+    final AtomicLong top = new AtomicLong(0);
+    final T[] items;
 
     public ChaseLevDeque(int size) {
         this.items = makeArray(size);
@@ -588,8 +707,10 @@ class ChaseLevDeque<T> implements Deque<T> {
     }
 
     public T pop() { // from bottom
-        final long b = bottom - 1, t = top.get(), afterSize = b - t;
+        final long b = bottom - 1;
         bottom = b;
+        final long t = top.get(), afterSize = b - t;
+
         if (afterSize < 0) { // empty before call
             bottom = t;
             return null;
@@ -607,7 +728,7 @@ class ChaseLevDeque<T> implements Deque<T> {
     }
 
     public T steal() { // from top
-        final long b = bottom, t = top.get(), size = b - t;
+        final long t = top.get(), b = bottom, size = b - t;
         if (size <= 0)
             return null;
         else {
@@ -631,7 +752,9 @@ static void runTestChaseLevDeque() throws Exception {
     parallelCLDequeTest(cl2, 10);
     System.out.println("ChaseLevDeque Tests Completed");
 }
+```
 
+```java
 static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
     CyclicBarrier barrier = new CyclicBarrier(threadCount+2);
     int pushedSum = 0;
