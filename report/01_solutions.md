@@ -1,3 +1,14 @@
+#Introduction
+The following report is Martin Rønning Bech's answer to the Programs as Data
+(PRCPP) E2014 examination. It is split into  sections for each of the
+question.
+
+The code snippets for each of the questions can be found in the corresponding
+question section, the code have been cut out of the Quicksorts.java file. The
+complete source code can be found in Appendix \ref{sec:source_code} but should
+not be needed to read this report. The code have been compiled and run on Arch
+Linux using OpenJDK 1.8.0_25
+
 #Question 1:
 In this question we have to make the given *SimpleDeque* thread safe using
 locks. To make the *SimpleDeque* thread safe we can apply the Java Monitor
@@ -30,7 +41,7 @@ public synchronized T steal() {...}
 ```
 
 #Question 2
-The *SortTask* is an immutable object, this is done by making the public fields
+The *SortTask* is an immutable object, this is done by making all the fields
 *final*. By being immutable we ensure that after its creation no one can update
 the instance, so we can safely pass it around in different threads. Any thread
 that needs to do an "update" of the *SortTask* will instead have to create a new
@@ -776,7 +787,8 @@ thread I have introduce some randomness to the execution. So in the push/pop
 threads we randomly either do push or pop.
 
 ```java
-static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
+static void parallelCLDequeTest(Deque<Integer> queue,
+         int threadCount) throws Exception {
     CyclicBarrier barrier = new CyclicBarrier(threadCount+2);
     int pushedSum = 0;
     
@@ -951,7 +963,13 @@ Threads Time
 7       5.006808109
 8       4.948741356
 
-For a short discussion of reasons why these tests is not accurate see Question 5.
+For a short discussion of reasons why these tests is not accurate see Question 5. 
+
 Comparing with the benchmarks performed in Question 5 and Question 7, there is
-no doubt that this solution still provides better performance over the single-queued
-multi-threaded solution. 
+no doubt that this solution still provides better performance over the
+single-queued multi-threaded solution. It also seems to provide slightly better
+performance that using the *SimpleDeque* not by a lot but enough to make it
+significant and it will probably even scale better on machines with more cores.
+The downside to using this queue is obviously how easy it is to make mistakes.
+As described in Question 8 even the pseudo implementation given with this exam
+had sublet small errors in the code.

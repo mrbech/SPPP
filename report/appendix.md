@@ -29,7 +29,7 @@ public static void assertTrue(boolean b) throws Exception {
 }
 ```
 
-#Chase-Lev Output
+#Chase-Lev Before Fix Output
 Failed: java.lang.Exception: ERROR: -182875 not equal to -182817
 
 Failed: java.lang.Exception: ERROR: 155085 not equal to 155018
@@ -49,3 +49,10 @@ Failed: java.lang.Exception: ERROR: 847382 not equal to 847403
 Failed: java.lang.Exception: ERROR: -368363 not equal to -368236
 
 Failed: java.lang.Exception: ERROR: -531851 not equal to -531807
+
+#Quicksorts.java Source code
+\label{sec:source_code}
+Notice that the source code has been formatted by Latex listing, weird newlines
+can occur.
+
+\lstinputlisting[language=Java, breaklines=true, frame=single]{../src/Quicksorts.java}

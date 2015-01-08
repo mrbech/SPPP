@@ -4,7 +4,7 @@ BIB = bibliography.bib
 HEADER = header.tex
 
 report.pdf: $(SOURCES) $(BIB) $(HEADER) appendix.tex images
-	pandoc -o $@ --number-sections --bibliography=$(BIB) \
+	pandoc -o $@ --bibliography=$(BIB) \
 		--include-in-header=$(HEADER) $(SOURCES) \
 		--include-after-body=appendix.tex --latex-engine=xelatex
 

@@ -34,11 +34,9 @@ public class Quicksorts {
 
 
 
-    // ----------------------------------------------------------------------
     // Testing
 
     static class Tests {
-        // ----------------------------------------------------------------------
         // Question 6
         private static void benchMarkMultiQueueMultiThread() {
             System.out.println("Threads\tTime");
@@ -51,7 +49,6 @@ public class Quicksorts {
                 System.out.println(i + "\t" + time);
             }
         }
-        // ----------------------------------------------------------------------
         // Question 11
         private static void benchMarkMultiCLQueueMultiThread() {
             System.out.println("Threads\tTime");
@@ -97,7 +94,7 @@ public class Quicksorts {
             //Threads done
             return t.check();
         }
-        // ----------------------------------------------------------------------
+
         // Question 5
         public static void benchmarkSingleQueueMultiThread(){
             System.out.println("Threads\tTime");
@@ -144,7 +141,6 @@ public class Quicksorts {
             runTestChaseLevDeque();
         }
 
-        // ----------------------------------------------------------------------
         // Question 9
         static void runTestChaseLevDeque() throws Exception {
             System.out.println("Running ChaseLevDeque Tests");
@@ -224,7 +220,6 @@ public class Quicksorts {
             assertEquals(retrievedsum, pushedsum);
         }
 
-        // ----------------------------------------------------------------------
         // Question 4
         static void runTestsSimpleDeque() throws Exception {
             //Test SimpleDeque
@@ -369,7 +364,6 @@ public class Quicksorts {
     }
 
 
-    // ----------------------------------------------------------------------
     // Version A: Standard sequential quicksort using recursion
 
     private static void sequentialRecursive() {
@@ -401,7 +395,6 @@ public class Quicksorts {
         int tmp = arr[s];  arr[s] = arr[t];  arr[t] = tmp;
     }
 
-    // ----------------------------------------------------------------------
     // Version B: Single-queue single-thread setup; sequential quicksort using queue
 
     private static void singleQueueSingleThread() {
@@ -434,7 +427,6 @@ public class Quicksorts {
         }
     }
 
-    // ---------------------------------------------------------------------- 
     // Version C: Single-queue multi-thread setup 
 
     private static void singleQueueMultiThread(final int threadCount) {
@@ -528,7 +520,6 @@ public class Quicksorts {
     }
 
 
-    // ----------------------------------------------------------------------
     // Version D: Multi-queue multi-thread setup, thread-local queues
 
     private static void multiQueueMultiThread(final int threadCount) {
@@ -658,7 +649,6 @@ public class Quicksorts {
     }
 }
 
-// ----------------------------------------------------------------------
 // SortTask class, Deque<T> interface, SimpleDeque<T> 
 
 // Represents the task of sorting arr[a..b]
@@ -729,7 +719,6 @@ class SimpleDeque<T> implements Deque<T> {
     }
 }
 
-// ----------------------------------------------------------------------
 
 // A lock-free queue simplified from Chase and Lev: Dynamic circular
 // work-stealing queue, SPAA 2005.  We simplify it by not reallocating
@@ -804,8 +793,6 @@ class ChaseLevDeque<T> implements Deque<T> {
         }
     }
 }
-
-// ----------------------------------------------------------------------
 
 class IntArrayUtil {
     public static int[] randomIntArray(final int n) {
