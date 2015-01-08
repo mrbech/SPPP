@@ -364,7 +364,7 @@ public static void benchmarkSingleQueueMultiThread(){
 ```
 
 The *sqmtBenchMarkVersion* is the actual benchmark methods. This method takes a
-thread count, creates an instance of the SimpleDeque, an array of 20 million
+thread count, creates an instance of the SimpleDeque, an array of 50 million
 random integers, the ongoing counter and then starts all of the *sqmtWorker*
 threads.  It uses a *CyclicBarrier* to ensure that all of the threads starts at
 the same time and to start the timer after the threads have started execution
@@ -375,7 +375,7 @@ resulting time.
 ```java
 public static double sqmtBenchMarkVersion(int threadCount){
     SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
-    int[] array = IntArrayUtil.randomIntArray(20_000_000);
+    int[] array = IntArrayUtil.randomIntArray(50_000_000);
     queue.push(new SortTask(array, 0, array.length-1));
     CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
 
@@ -408,25 +408,25 @@ public static double sqmtBenchMarkVersion(int threadCount){
 ```
 
 I have run the tests on a Linux machine with 2 cores (4 hyper-threaded),
-compiled and run with OpenJDK Java 8. Below is the resulting table of sorting 20
+compiled and run with OpenJDK Java 8. Below is the resulting table of sorting 50
 million integers using 1 to 8 threads. The measurements shows first a decrease in
 performance and then a slight increase, the extra overhead of all threads
 accessing the same queue does seem to some degree hinder the execution time of
 this implementation.
 
-Threads  Time (Seconds)
--------  -------- 
-1        5.163053139
-2        7.496664894
-3        6.961242125
-4        7.567593447
-5        5.036839369
-6        4.811132867
-7        4.600989057
-8        4.53502937
+Threads Time (Seconds)
+------- -------- 
+1       12.340515302
+2       16.846127914
+3       17.464326595
+4       17.812679099
+5       12.014321464
+6       12.175678324
+7       12.185204746
+8       12.476405772
 
 The test is obviously no completely accurate, but it does show something about
-the performance of the implementation. There are however a few things to not:
+the performance of the implementation. There are however a few things to note:
 
 * Its only a single sorting run. We do not repeat and average.
 * Its only shows the execution time on my specific machine.
@@ -616,7 +616,7 @@ threads to finish and then returns the resulting time.
 ```java
 private static double mqmtBenchMarkVersion(int threadCount,
     Deque<SortTask>[] queues) {
-    int[] array = IntArrayUtil.randomIntArray(20_000_000);
+    int[] array = IntArrayUtil.randomIntArray(50_000_000);
     queues[0].push(new SortTask(array, 0, array.length-1));
     CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
 
@@ -650,22 +650,22 @@ private static double mqmtBenchMarkVersion(int threadCount,
 
 I have run the tests on Linux machine with 2 cores (4 hyper-threaded), compiled
 and run with OpenJDK Java 8 (Same as in Question 5). Below is the resulting
-table of sorting 20 million integers using 1 to 8 threads. The table shows a
+table of sorting 50 million integers using 1 to 8 threads. The table shows a
 decent performance gain from adding multiple threads until 4 threads are added
 it then stays around the same execution time.
 
 Threads Time
 ------- ----------
-1       4.673261823
-2       3.164645371
-3       2.573688754
-4       1.94583811
-5       2.272075977
-6       2.179852209
-7       1.950004463
-8       2.179962992
+1       12.465767929
+2       6.606346842
+3       6.595644916
+4       7.033794127
+5       5.883259311
+6       6.057786901
+7       5.285766619
+8       5.159242964
 
-For a short discussion of reasons why this tests is not accurate see Question 5.
+For a short discussion of reasons why these tests is not accurate see Question 5.
 From this benchmark we see a clear benefit from adding more threads to the
 multi-threaded multi-queued Quicksort in comparison to the single-queued
 multi-threaded approach. The reason for this is most likely that we have reduced
@@ -934,13 +934,24 @@ private static void benchMarkMultiCLQueueMultiThread() {
 }
 ```
 
+I have run the tests on Linux machine with 2 cores (4 hyper-threaded), compiled
+and run with OpenJDK Java 8 (Same as in Question 5). Below is the resulting
+table of sorting 20 million integers using 1 to 8 threads. The table shows a
+decent performance gain from adding multiple threads until 4 threads are added
+it then stays around the same execution time.
+
 Threads Time
 ------- ----------
-1       4.304853945
-2       2.73936218
-3       2.046592741
-4       1.850278707
-5       1.942862235
-6       2.034372296
-7       2.07867276
-8       1.821243739
+1       11.295220809
+2       6.124706902
+3       5.452502169
+4       5.026470204
+5       5.349917083
+6       4.809790837
+7       5.006808109
+8       4.948741356
+
+For a short discussion of reasons why these tests is not accurate see Question 5.
+Comparing with the benchmarks performed in Question 5 and Question 7, there is
+no doubt that this solution still provides better performance over the single-queued
+multi-threaded solution. 

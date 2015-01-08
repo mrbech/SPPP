@@ -26,9 +26,9 @@ public class Quicksorts {
         //singleQueueMultiThread(8);
         //multiQueueMultiThread(8);
         //multiQueueMultiThreadCL(8);
-        //Tests.benchmarkSingleQueueMultiThread();
-        //Tests.benchMarkMultiQueueMultiThread();
-        //Tests.benchMarkMultiCLQueueMultiThread();
+        Tests.benchmarkSingleQueueMultiThread();
+        Tests.benchMarkMultiQueueMultiThread();
+        Tests.benchMarkMultiCLQueueMultiThread();
         Tests.runTests();
     }
 
@@ -67,7 +67,7 @@ public class Quicksorts {
 
 
         private static double mqmtBenchMarkVersion(int threadCount, Deque<SortTask>[] queues) {
-            int[] array = IntArrayUtil.randomIntArray(20_000_000);
+            int[] array = IntArrayUtil.randomIntArray(50_000_000);
             queues[0].push(new SortTask(array, 0, array.length-1));
             CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
 
@@ -109,7 +109,7 @@ public class Quicksorts {
 
         public static double sqmtBenchMarkVersion(int threadCount){
             SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
-            int[] array = IntArrayUtil.randomIntArray(20_000_000);
+            int[] array = IntArrayUtil.randomIntArray(50_000_000);
             queue.push(new SortTask(array, 0, array.length-1));
             CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
 
