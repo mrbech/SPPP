@@ -27,10 +27,36 @@ public synchronized T steal() {...}
 ```
 
 #Question 2
-The SortTask is a immutable object, this is done by making the public fields *final*. By being immutable we ensure that after its creation no one can update it, so we can safely pass it around threads. Any thread that needs to do an "update" of the *SortTask* will instead have to create a new instance with the updated values.
+The SortTask is a immutable object, this is done by making the public fields
+*final*. By being immutable we ensure that after its creation no one can update
+it, so we can safely pass it around threads. Any thread that needs to do an
+"update" of the *SortTask* will instead have to create a new instance with the
+updated values.
 
 #Question 3
 ```java
+private static void singleQueueMultiThread(final int threadCount) {
+    System.out.println("Running singleQueueMultiThread");
+    SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
+    //int[] arr = IntArrayUtil.randomIntArray(size);
+    System.out.println("Before:");
+    int[] arr = IntArrayUtil.randomIntArray(20);
+
+    IntArrayUtil.printout(arr, 20);
+
+    queue.push(new SortTask(arr, 0, arr.length-1));
+    sqmtWorkers(queue, threadCount);
+
+    System.out.println("After:");
+    IntArrayUtil.printout(arr, 20);
+
+    System.out.println("Sorted:");
+    System.out.println(IntArrayUtil.isSorted(arr));
+}
+
+/**
+ * Function for starting singleQueueMultiThread workers
+ */
 private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
     //Initialize ongoing counter with the size of the queue
     //We assume the queue only has a single task
@@ -40,35 +66,8 @@ private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
     //Creating threads:
     Thread[] threads = new Thread[threadCount];
     for(int t = 0; t < threadCount; t++){
-        threads[t] = new Thread(()->{
-            SortTask task;
-            while (null != (task = getTask(queue, ongoing))) {
-                //We have a task now partition!
-                final int[] arr = task.arr;
-                final int a = task.a, b = task.b;
-                if (a < b) { 
-                    int i = a, j = b;
-                    int x = arr[(i+j) / 2];         
-                    do {                            
-                        while (arr[i] < x) i++;       
-                        while (arr[j] > x) j--;       
-                        if (i <= j) {
-                            swap(arr, i, j);
-                            i++; j--;
-                        }                             
-                    } while (i <= j); 
-
-                    //Increment the counter when pushing
-                    queue.push(new SortTask(arr, a, j));
-                    ongoing.increment();
-                    queue.push(new SortTask(arr, i, b));
-                    ongoing.increment();
-                }
-                //We have sorted something, time to decrement
-                ongoing.decrement();
-            }
-        });
         //Start the thread
+        threads[t] = new Thread(()-> sqmtWorker(queue, ongoing));
         threads[t].start();
     }
 
@@ -79,15 +78,49 @@ private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
         }catch(InterruptedException e){}
     }
 }
+
+/**
+ * Function for a singleQueueMultiThread worker
+ */
+private static void sqmtWorker(Deque<SortTask> queue, LongAdder ongoing){
+    SortTask task;
+    while (null != (task = getTask(queue, ongoing))) {
+        //We have a task now partition!
+        final int[] arr = task.arr;
+        final int a = task.a, b = task.b;
+        if (a < b) { 
+            int i = a, j = b;
+            int x = arr[(i+j) / 2];         
+            do {                            
+                while (arr[i] < x) i++;       
+                while (arr[j] > x) j--;       
+                if (i <= j) {
+                    swap(arr, i, j);
+                    i++; j--;
+                }                             
+            } while (i <= j); 
+
+            //Increment the counter when pushing
+            queue.push(new SortTask(arr, a, j));
+            ongoing.increment();
+            queue.push(new SortTask(arr, i, b));
+            ongoing.increment();
+        }
+        //We have sorted something, time to decrement
+        ongoing.decrement();
+    }
+}
 ```
 
 Output:
 ```
+Running singleQueueMultiThread
 Before:
-34 13 35 6 35 24 21 38 17 27 28 3 28 7 19 29 37 24 18 20
-
+38 1 12 30 27 19 15 18 33 6 13 11 28 25 12 4 38 33 29 7 
 After:
-3 6 7 13 17 18 19 20 21 24 24 27 28 28 29 34 35 35 37 38
+1 4 6 7 11 12 12 13 15 18 19 25 27 28 29 30 33 33 38 38 
+Sorted:
+true
 ```
 
 #Question 4
@@ -220,6 +253,14 @@ Threads  Time (Seconds)
 8        4.53502937
 
 ```java
+public static void benchmarkSingleQueueMultiThread(){
+    System.out.println("Threads\tTime");
+    for(int i = 1; i<9; i++){
+        double time = sqmtBenchMarkVersion(i);
+        System.out.println(i + "\t" + time);
+    }
+}
+
 public static double sqmtBenchMarkVersion(int threadCount){
     SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
     int[] array = IntArrayUtil.randomIntArray(20_000_000);
@@ -236,32 +277,7 @@ public static double sqmtBenchMarkVersion(int threadCount){
     for(int t = 0; t < threadCount; t++){
         threads[t] = new Thread(()->{
             awaitBarrier(barrier);
-            SortTask task;
-            while (null != (task = getTask(queue, ongoing))) {
-                //We have a task now partition!
-                final int[] arr = task.arr;
-                final int a = task.a, b = task.b;
-                if (a < b) { 
-                    int i = a, j = b;
-                    int x = arr[(i+j) / 2];         
-                    do {                            
-                        while (arr[i] < x) i++;       
-                        while (arr[j] > x) j--;       
-                        if (i <= j) {
-                            swap(arr, i, j);
-                            i++; j--;
-                        }                             
-                    } while (i <= j); 
-
-                    //Increment the counter when pushing
-                    queue.push(new SortTask(arr, a, j));
-                    ongoing.increment();
-                    queue.push(new SortTask(arr, i, b));
-                    ongoing.increment();
-                }
-                //We have sorted something, time to decrement
-                ongoing.decrement();
-            }
+            sqmtWorker(queue, ongoing);
             awaitBarrier(barrier);
         });
         //Start the thread
@@ -282,88 +298,107 @@ public static double sqmtBenchMarkVersion(int threadCount){
 #Question 6
 
 ```java
-    private static void multiQueueMultiThreadCL(final int threadCount) {
-        int[] arr = IntArrayUtil.randomIntArray(size);
-        // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
-        System.out.println(IntArrayUtil.isSorted(arr));
+private static void multiQueueMultiThread(final int threadCount) {
+    System.out.println("Running multiQueueMultiThread");
+    SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
+    for(int i = 0; i < threadCount; i++){
+        queues[i] = new SimpleDeque<SortTask>(100000);
+    }
+    //int[] arr = IntArrayUtil.randomIntArray(size);
+    System.out.println("Before:");
+    int[] arr = IntArrayUtil.randomIntArray(20);
+    IntArrayUtil.printout(arr, 20);
+
+
+    queues[0].push(new SortTask(arr, 0, arr.length-1));
+    mqmtWorkers(queues, threadCount);
+
+    System.out.println("After:");
+    IntArrayUtil.printout(arr, 20);
+    
+    System.out.println("Sorted:");
+    System.out.println(IntArrayUtil.isSorted(arr));
+}
+
+private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
+    //Initialize ongoing counter with the size of the queue
+    //We assume the queue only has a single task
+    LongAdder ongoing = new LongAdder();
+    ongoing.increment();
+
+    //Creating threads:
+    Thread[] threads = new Thread[threadCount];
+    for(int t = 0; t < threadCount; t++){
+        //Start worker thread
+        final int myNumber = t;
+        threads[t] = new Thread(()-> mqmtWorker(queues, myNumber, ongoing));
+        threads[t].start();
     }
 
-    private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
-        //Initialize ongoing counter with the size of the queue
-        //We assume the queue only has a single task
-        LongAdder ongoing = new LongAdder();
-        ongoing.increment();
+    //Wait for the threads to finish
+    for(int t = 0; t < threadCount; t++){
+        try{
+            threads[t].join();
+        }catch(InterruptedException e){}
+    }
+}
 
-        //Creating threads:
-        Thread[] threads = new Thread[threadCount];
-        for(int t = 0; t < threadCount; t++){
-            final int tl = t;
-            threads[t] = new Thread(()->{
-                SortTask task;
-                while (null != (task = getTask(tl, queues, ongoing))) {
-                    //We have a task now partition!
-                    final int[] arr = task.arr;
-                    final int a = task.a, b = task.b;
-                    if (a < b) { 
-                        int i = a, j = b;
-                        int x = arr[(i+j) / 2];         
-                        do {                            
-                            while (arr[i] < x) i++;       
-                            while (arr[j] > x) j--;       
-                            if (i <= j) {
-                                swap(arr, i, j);
-                                i++; j--;
-                            }                             
-                        } while (i <= j); 
+private static void mqmtWorker(Deque<SortTask>[] queues, int myNumber,
+        LongAdder ongoing){
+        SortTask task;
+        while (null != (task = getTask(myNumber, queues, ongoing))) {
+            //We have a task now partition!
+            final int[] arr = task.arr;
+            final int a = task.a, b = task.b;
+            if (a < b) { 
+                int i = a, j = b;
+                int x = arr[(i+j) / 2];         
+                do {                            
+                    while (arr[i] < x) i++;       
+                    while (arr[j] > x) j--;       
+                    if (i <= j) {
+                        swap(arr, i, j);
+                        i++; j--;
+                    }                             
+                } while (i <= j); 
 
-                        //Increment the counter when pushing
-                        queues[tl].push(new SortTask(arr, a, j));
-                        ongoing.increment();
-                        queues[tl].push(new SortTask(arr, i, b));
-                        ongoing.increment();
+                //Increment the counter when pushing
+                queues[myNumber].push(new SortTask(arr, a, j));
+                ongoing.increment();
+                queues[myNumber].push(new SortTask(arr, i, b));
+                ongoing.increment();
+            }
+            //We have sorted something, time to decrement
+            ongoing.decrement();
+        }
+} 
+
+// Tries to get a sorting task.  If task queue is empty, repeatedly
+// try to steal, cyclically, from other threads and if that fails,
+// yield and then try again, while some sort tasks are not processed.
+
+private static SortTask getTask(final int myNumber, final Deque<SortTask>[] queues, 
+        LongAdder ongoing) {
+    final int threadCount = queues.length;
+    SortTask task = queues[myNumber].pop();
+    if (null != task) 
+        return task;
+    else {
+        do {
+            //Lets try to steal a task from someone...
+            for(int i = 0; i < queues.length; i++){
+                if(i != myNumber){
+                    task = queues[i].steal();
+                    if(task != null){
+                        return task;
                     }
-                    //We have sorted something, time to decrement
-                    ongoing.decrement();
                 }
-            });
-            //Start the thread
-            threads[t].start();
-        }
-
-        //Wait for the threads to finish
-        for(int t = 0; t < threadCount; t++){
-            try{
-                threads[t].join();
-            }catch(InterruptedException e){}
-        }
+            }
+            Thread.yield();
+        } while (ongoing.longValue() > 0);
+        return null;
     }
-
-    // Tries to get a sorting task.  If task queue is empty, repeatedly
-    // try to steal, cyclically, from other threads and if that fails,
-    // yield and then try again, while some sort tasks are not processed.
-
-    private static SortTask getTask(final int myNumber, final Deque<SortTask>[] queues, 
-            LongAdder ongoing) {
-        final int threadCount = queues.length;
-        SortTask task = queues[myNumber].pop();
-        if (null != task) 
-            return task;
-        else {
-            do {
-                //Lets try to steal a task from someone...
-                for(int i = 0; i < queues.length; i++){
-                    if(i != myNumber){
-                        task = queues[i].steal();
-                        if(task != null){
-                            return task;
-                        }
-                    }
-                }
-                Thread.yield();
-            } while (ongoing.longValue() > 0);
-            return null;
-        }
-    }
+}
 ```
 
 #Question 7
@@ -382,16 +417,17 @@ Threads Time
 private static void benchMarkMultiQueueMultiThread() {
     System.out.println("Threads\tTime");
     for(int i = 1; i<9; i++){
-        double time = mqmtBenchMarkVersion(i);
+        SimpleDeque<SortTask>[] queues = new SimpleDeque[i];
+        for(int t = 0; t < i; t++){
+            queues[t] = new SimpleDeque<SortTask>(100000);
+        }
+        double time = mqmtBenchMarkVersion(i, queues);
         System.out.println(i + "\t" + time);
     }
 }
 
-private static double mqmtBenchMarkVersion(int threadCount) {
-    SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
-    for(int i = 0; i < threadCount; i++){
-        queues[i] = new SimpleDeque<SortTask>(100000);
-    }
+private static double mqmtBenchMarkVersion(int threadCount,
+    Deque<SortTask>[] queues) {
     int[] array = IntArrayUtil.randomIntArray(20_000_000);
     queues[0].push(new SortTask(array, 0, array.length-1));
     CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
@@ -404,35 +440,10 @@ private static double mqmtBenchMarkVersion(int threadCount) {
     //Creating threads:
     Thread[] threads = new Thread[threadCount];
     for(int t = 0; t < threadCount; t++){
-        final int tl = t;
+        final int myNumber = t;
         threads[t] = new Thread(()->{
             awaitBarrier(barrier);
-            SortTask task;
-            while (null != (task = getTask(tl, queues, ongoing))) {
-                //We have a task now partition!
-                final int[] arr = task.arr;
-                final int a = task.a, b = task.b;
-                if (a < b) { 
-                    int i = a, j = b;
-                    int x = arr[(i+j) / 2];         
-                    do {                            
-                        while (arr[i] < x) i++;       
-                        while (arr[j] > x) j--;       
-                        if (i <= j) {
-                            swap(arr, i, j);
-                            i++; j--;
-                        }                             
-                    } while (i <= j); 
-
-                    //Increment the counter when pushing
-                    queues[tl].push(new SortTask(arr, a, j));
-                    ongoing.increment();
-                    queues[tl].push(new SortTask(arr, i, b));
-                    ongoing.increment();
-                }
-                //We have sorted something, time to decrement
-                ongoing.decrement();
-            }
+            mqmtWorker(queues, myNumber, ongoing);
             awaitBarrier(barrier);
         });
         //Start the thread
@@ -597,18 +608,42 @@ static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Ex
 
 #Question 10
 
+```java
+private static void multiQueueMultiThreadCL(final int threadCount) {
+    System.out.println("Running multiQueueMultiThreadCL");
+    ChaseLevDeque<SortTask>[] queues = new ChaseLevDeque[threadCount];
+    for(int i = 0; i < threadCount; i++){
+        queues[i] = new ChaseLevDeque<SortTask>(100000);
+    }
+    //int[] arr = IntArrayUtil.randomIntArray(size);
+    System.out.println("Before:");
+    int[] arr = IntArrayUtil.randomIntArray(20);
+    IntArrayUtil.printout(arr, 20);
+
+
+    queues[0].push(new SortTask(arr, 0, arr.length-1));
+    mqmtWorkers(queues, threadCount);
+
+    System.out.println("After:");
+    IntArrayUtil.printout(arr, 20);
+
+    System.out.println("Sorted:");
+    System.out.println(IntArrayUtil.isSorted(arr));
+}
 ```
+
+```
+Running multiQueueMultiThreadCL
 Before:
-37 32 25 34 0 14 10 39 12 25 30 2 36 1 37 1 12 1 11 33 
-
+15 0 15 31 6 26 38 29 12 38 38 16 27 20 7 20 23 13 10 24 
 After:
-0 1 1 1 2 10 11 12 12 14 25 25 30 32 33 34 36 37 37 39 
-
+0 6 7 10 12 13 15 15 16 20 20 23 24 26 27 29 31 38 38 38 
 Sorted:
 true
 ```
 
 #Question 11
+
 Threads Time
 ------- ----------
 1       4.304853945
@@ -619,3 +654,17 @@ Threads Time
 6       2.034372296
 7       2.07867276
 8       1.821243739
+
+```java
+private static void benchMarkMultiCLQueueMultiThread() {
+    System.out.println("Threads\tTime");
+    for(int i = 1; i<9; i++){
+        ChaseLevDeque<SortTask>[] queues = new ChaseLevDeque[i];
+        for(int t = 0; t < i; t++){
+            queues[t] = new ChaseLevDeque<SortTask>(100000);
+        }
+        double time = mqmtBenchMarkVersion(i, queues);
+        System.out.println(i + "\t" + time);
+    }
+}
+```
