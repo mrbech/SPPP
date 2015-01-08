@@ -24,12 +24,12 @@ public class Quicksorts {
         //sequentialRecursive();
         //singleQueueSingleThread();
         //singleQueueMultiThread(8);
-        multiQueueMultiThread(8);
+        //multiQueueMultiThread(8);
         //multiQueueMultiThreadCL(8);
         //Tests.benchmarkSingleQueueMultiThread();
         //Tests.benchMarkMultiQueueMultiThread();
         //Tests.benchMarkMultiCLQueueMultiThread();
-        //Tests.runTests();
+        Tests.runTests();
     }
 
 
@@ -140,8 +140,8 @@ public class Quicksorts {
 
         }
         static void runTests() throws Exception{
-            runTestsSimpleDeque();
-            //runTestChaseLevDeque();
+            //runTestsSimpleDeque();
+            runTestChaseLevDeque();
         }
 
         // ----------------------------------------------------------------------
@@ -150,14 +150,8 @@ public class Quicksorts {
             System.out.println("Running ChaseLevDeque Tests");
             ChaseLevDeque<Integer> cl = new ChaseLevDeque<Integer>(100_000_000);
             sequentialDequeTest(cl);
-            for(int i = 0; i < 100; i++){
-                try{
-                ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
-                parallelCLDequeTest(cl2, 10);
-                }catch(Exception e){
-                    System.out.println("Failed: " + e);
-                }
-            }
+            ChaseLevDeque<Integer> cl2 = new ChaseLevDeque<Integer>(100_000_000);
+            parallelCLDequeTest(cl2, 10);
             System.out.println("ChaseLevDeque Tests Completed");
         }
 
@@ -172,7 +166,7 @@ public class Quicksorts {
                 awaitBarrier(barrier);
                 long p = 0;
                 long pop = 0;
-                for(int i = 0; i < 400_000_000; i++){
+                for(int i = 0; i < 10_000_000; i++){
                     Random random = new Random();
                     if((random.nextInt() % 2) == 0){
                         int r = random.nextInt() % 100;
@@ -198,7 +192,7 @@ public class Quicksorts {
                 new Thread(()->{
                     awaitBarrier(barrier);
                     long s = 0;
-                    for(int i = 0; i < 400_000_000; i++){
+                    for(int i = 0; i < 10_000_000; i++){
                         Integer p = queue.steal();
                         if(p != null){
                             s += p;

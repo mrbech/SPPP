@@ -179,14 +179,14 @@ any given time there will only ever exists a task (recursive step in the normal
 algorithm) going from some $a$ to some $b$ and there will be no overlap.
 
 #Question 4
-In this question we write tests for the *SimpleDeque* implementation made in
-Question 1. First we write a sequential test that tests that the *SimpleDeque*
-works as expect using only a single thread. Then we write a parallel tests that
-tries to tests if the implementation works when accessed by multiple threads.
-For the tests I have used the *assertEquals* and *assertTrue* methods given in
-the course material from week 9 as well as introduced two new helper methods
-*assertNull* and *awaitBarrier* all the helper methods can be found in appendix
-\ref{appendix_helper_methods}.
+In this question we write tests for the *SimpleDeque* implementation implemented
+in Question 1. First we write a sequential test that tests that the
+*SimpleDeque* works as expect using only a single thread. Then we write a
+parallel tests that tries to tests if the implementation works when accessed by
+multiple threads.  For the tests I have used the *assertEquals* and *assertTrue*
+methods given in the course material from week 9 as well as introduced two new
+helper methods *assertNull* and *awaitBarrier* all the helper methods can be
+found in appendix \ref{appendix_helper_methods}.
 
 In the *sequentialDequeTest* we test that the general functionality of the
 given *Deque* works. First we tests that *pop* and *steal* will return *null*
@@ -239,7 +239,8 @@ they will continuously update when the have pushed, popped or stolen a value
 from the *Deque*. When they have completed their work they will add their local
 *long* sum value to a shared *LongAdder* between the threads. The threads are
 synchronized using a *CyclicBarrier* so they wait for all threads to have
-started and completed.
+started and completed. The idea here is to try an force the test to go through
+as many different code interleavings as possible.
 
 The main thread starts all the threads, it then waits first for all of them to
 start then for all of them to finish. After all threads have completed it
@@ -331,13 +332,13 @@ I have run the tests on my *SimpleDeque* implementation multiple times using
 different amount of threads and it seems to pass every time.
 
 To see if these tests will actually be able to find errors in my implementation
-I have done the following mutations if my implementation:
+I have done the following mutations of my implementation:
 
-* Removing the statement that adds the *item* to the *items* list in the *push*
+* Removed the statement that adds the *item* to the *items* list in the *push*
   method, this gets caught by the sequential test.
-* Removing the decrement of *bottom* in the *pop* method, this gets caught by
+* Removed the decrement of *bottom* in the *pop* method, this gets caught by
   the sequential test.
-* Removing the increment of *top* in steal, this gets caught by the sequential
+* Removed the increment of *top* in steal, this gets caught by the sequential
   test.
 * Different permutations of removing the *syncronized* keyword from *push*,
   *pop* and *steal*. All permutations was found by the parallel test.
@@ -589,7 +590,7 @@ time of the multi-queue multi-threaded Quicksort with results of running the
 single-queue multi-threaded Quicksort in Question 5.
 
 The *benchmarkMultiQueueMultiThread* method simply creates the list of
-*SimpleQueues* and calls the benchmarking method with threadcount from $1...8$
+*SimpleQueues* and calls the benchmarking method with thread count from 1 to 8
 and prints the result to the console in a table like format.
 
 ```java
@@ -743,6 +744,15 @@ class ChaseLevDeque<T> implements Deque<T> {
 ```
 
 #Question 9
+In this question we write tests for the *ChaseLevDeque* implemented in Question 8.
+First we write a parallel test that only pop/pushes in one thread and steals in
+multiple threads. We then run the sequential test from Question 4 and our new
+parallel test on the *ChaseLevDeque*.
+
+First we have the *runTestChaseLevDeque* method that sets up and runs the
+*sequentialDequeTest* from Question 4 and our new *parallelCLDequeTest* test on
+the *ChaseLevDeque*.
+
 ```java
 static void runTestChaseLevDeque() throws Exception {
     System.out.println("Running ChaseLevDeque Tests");
@@ -753,6 +763,17 @@ static void runTestChaseLevDeque() throws Exception {
     System.out.println("ChaseLevDeque Tests Completed");
 }
 ```
+
+The *parallelCLDDequeTest* is a modified version of the *parallelDequeTest* from
+Question 4. This test still uses *CyclicBarrier* to synchronize the thread
+starts, and it still compares the sum on values push on the queue with the sum
+of the values popped, stolen and remaining in the queue after the test run. 
+
+The big differences between this test and the test in Question 4 is that we now
+only have a single thread that pushes and pops. So to try and force as many
+different code interleavings between the stealing threads and the push/pop
+thread I have introduce some randomness to the execution. So in the push/pop
+threads we randomly either do push or pop.
 
 ```java
 static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Exception {
@@ -766,7 +787,7 @@ static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Ex
         awaitBarrier(barrier);
         long p = 0;
         long pop = 0;
-        for(int i = 0; i < 1_000_000; i++){
+        for(int i = 0; i < 10_000_000; i++){
             Random random = new Random();
             if((random.nextInt() % 2) == 0){
                 int r = random.nextInt() % 100;
@@ -792,7 +813,7 @@ static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Ex
         new Thread(()->{
             awaitBarrier(barrier);
             long s = 0;
-            for(int i = 0; i < 1_000_000; i++){
+            for(int i = 0; i < 10_000_000; i++){
                 Integer p = queue.steal();
                 if(p != null){
                     s += p;
@@ -825,7 +846,30 @@ static void parallelCLDequeTest(Deque<Integer> queue, int threadCount) throws Ex
 }
 ```
 
+Running the sequential test on the *ChaseLevDeque* passed without errors.Running
+the parallel test with different numbers of threads and different numbers of
+push/pop and steal operations have all passed without errors on the current
+implementation of the *ChaseLevDeque*.
+
+To see if these tests will actually be able to find errors in the implementation
+I have done the following mutations of the implementation:
+
+* Removed the statement that adds the *item* to the *items* list in the *push*
+  method, this gets caught by the sequential test.
+* Made the *top.compareAndSwap* if statment in *pop* into a *top.set(t+1)*, was
+  caught by the parallel test.
+* Made the *top.compareAndSwap* in *steal* into a *top.set(t+1)*, was caught by
+  the parallel test.
+
 #Question 10
+In this question we must used the *ChaseLevDeque* from Question 8 with the
+multi-threaded multi-queue Quicksort from Question 6. We will first show the code
+and then the output of running the code.
+
+Below is the code used to run the *ChaseLevDeque* with the multi-threaded
+multi-queue Quicksort. It is also identical to the code from
+*multiQueueMultiThread* from Question 6, except it now creates a list of
+*ChaseLevDeque*.
 
 ```java
 private static void multiQueueMultiThreadCL(final int threadCount) {
@@ -851,6 +895,8 @@ private static void multiQueueMultiThreadCL(final int threadCount) {
 }
 ```
 
+Below is the output of running the code above, sorting the list as expected.
+
 ```
 Running multiQueueMultiThreadCL
 Before:
@@ -862,17 +908,17 @@ true
 ```
 
 #Question 11
+In this question we have to measure the wall clock running time of the
+multi-queue multi-threaded Quicksort using the *ChaseLevDeque* implemented in
+Question 8. First we show the implementation used, then we show the measurements
+made and finally we compare the measurements with the measurements of the other
+implementations.
 
-Threads Time
-------- ----------
-1       4.304853945
-2       2.73936218
-3       2.046592741
-4       1.850278707
-5       1.942862235
-6       2.034372296
-7       2.07867276
-8       1.821243739
+The measurements code found in *benchmarkMultiCLQueueMultiThread* method is very
+similar to the code found in *benchMarkMultiQueueMultiThread* method from
+Question 7 and uses the *mqmtBenchMarkVersion* method from Question 7. It
+creates a list of *ChaseLevDeque* and calls the benchmarking method with thread
+count from 1 to 8.
 
 ```java
 private static void benchMarkMultiCLQueueMultiThread() {
@@ -887,3 +933,14 @@ private static void benchMarkMultiCLQueueMultiThread() {
     }
 }
 ```
+
+Threads Time
+------- ----------
+1       4.304853945
+2       2.73936218
+3       2.046592741
+4       1.850278707
+5       1.942862235
+6       2.034372296
+7       2.07867276
+8       1.821243739
